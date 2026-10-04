@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ campaign.name }} | Donation Tracker</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <a class="brand" href="{{ url_for('dashboard') }}">Give<span>Track</span></a>
+      <span class="status"><i></i> Campaign dashboard</span>
+    </header>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <section class="messages" aria-live="polite">
+          {% for category, message in messages %}<p class="{{ category }}">{{ message }}</p>{% endfor %}
+        </section>
+      {% endif %}
+    {% endwith %}
+
+    <section class="hero">
+      <div>
+        <p class="eyebrow">Active fundraiser</p>
+        <h1>{{ campaign.name }}</h1>
+        <p class="intro">{{ campaign.description }}</p>
+      </div>
+      <div class="goal-card">
+        <span>Fundraising goal</span>
+        <strong>{{ campaign.goal|currency }}</strong>
+      </div>
+    </section>
+
+    <section class="overview">
+      <div class="progress-panel">
+        <div class="stat-line"><span>Raised so far</span><strong>{{ raised|currency }}</strong></div>
+        <div class="progress-track"><div class="progress-bar" style="width: {{ progress }}%"></div></div>
+        <div class="stat-line muted"><span>{{ "%.0f"|format(progress) }}% of goal</span><span>{{ (campaign.goal - raised)|currency }} to go</span></div>
+      </div>
+      <div class="metric"><span>Total donors</span><strong>{{ donor_count }}</strong></div>
+      <div class="metric"><span>Average gift</span><strong>{{ (raised / donor_count if donor_count else 0)|currency }}</strong></div>
+    </section>
+
+    <section class="content-grid">
+      <div class="card">
+        <div class="card-heading"><div><p class="eyebrow">Activity</p><h2>Recent donations</h2></div><span class="count">{{ donor_count }} gifts</span></div>
+        <div class="donation-list">
+          {% for donation in donations %}
+            <div class="donation"><div class="avatar">{{ donation.name[0]|upper }}</div><div class="donor"><strong>{{ donation.name }}</strong><span>{{ donation.date }}</span></div><b>{{ donation.amount|currency }}</b></div>
+          {% else %}<p class="empty">No donations have been recorded yet.</p>{% endfor %}
+        </div>
+      </div>
+
+      <div class="card form-card">
+        <p class="eyebrow">Quick entry</p><h2>Record a donation</h2>
+        <form method="post" action="{{ url_for('add_donation') }}">
+          <label for="name">Donor name</label><input id="name" name="name" type="text" placeholder="Anonymous">
+          <label for="amount">Amount</label><div class="amount-input"><span>$</span><input id="amount" name="amount" type="number" min="0.01" step="0.01" placeholder="0.00" required></div>
+          <button type="submit">Add donation <span>-></span></button>
+        </form>
+      </div>
+    </section>
+    <footer>GiveTrack starter app <span>•</span> Built for transparent fundraising</footer>
+  </main>
+</body>
+</html>
