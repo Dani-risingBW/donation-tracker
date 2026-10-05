@@ -20,7 +20,7 @@
 > 4. **Where to Donate page:** our Cash App $cashtag and QR code, plus drop-off/item instructions.
 > 5. **Cash App verification flow:** after donating, a donor submits a form with the amount and a screenshot. Submissions go to a review queue where an admin verifies the donation before it counts toward the progress bar.
 > 6. **Admin role:** a protected dashboard to approve/reject submissions, edit the tracker, set goals and item values, and add manual entries.
-> 7. **Contact:** spreadmattew2535@gmail.com in the footer and on a Contact section.
+> 7. **Contact:** spreadmatthew2535@gmail.com in the footer and on a Contact section.
 >
 > **Branding and content**
 > - Name: **25:35**

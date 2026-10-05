@@ -43,7 +43,7 @@ campaign = {
     "end_date": "",
     "items": [item.copy() for item in DEFAULT_ITEMS],
     "distribution": "Gifts support direct outreach and practical care for neighbors in need throughout the DC area.",
-    "contact_email": "spreadmattew2535@gmail.com",
+    "contact_email": "spreadmatthew2535@gmail.com",
 }
 
 verified_donations = [

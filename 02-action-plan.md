@@ -18,7 +18,7 @@
 9. **Item Drive:** one card per item with a mini progress bar.
 10. **I Donated:** Cash vs. Goods toggle; goods calculate value live.
 11. **Where to Donate:** cashtag, QR code, copy button, drop-off details.
-12. **Contact:** spreadmattew2535@gmail.com in the footer and its own section.
+12. **Contact:** spreadmatthew2535@gmail.com in the footer and its own section.
 
 ## Phase 4: Cash App verification flow
 13. Donor sends money through Cash App, then opens "I Donated."

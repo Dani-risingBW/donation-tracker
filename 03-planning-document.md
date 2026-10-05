@@ -1,7 +1,7 @@
 # 25:35 Fundraiser: Planning Document
 
 **Live page:** https://claude.ai/artifact/FbKStDfSZwTfnHsFoKHkv2
-**Contact:** spreadmattew2535@gmail.com
+**Contact:** spreadmatthew2535@gmail.com
 
 ## 1. Purpose
 Track fundraiser progress toward a dollar goal, combining cash and the cash value of donated goods, and manage an item drive for people experiencing homelessness in Washington, D.C.
