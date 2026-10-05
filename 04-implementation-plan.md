@@ -1,12 +1,30 @@
 # 25:35 Fundraiser Tracker: Implementation Plan
 
-Status: Awaiting approval
+Status: Active implementation on `feature/2535-fundraiser-buildout`
 
 ## Current baseline
 
-The repository currently contains a small Flask starter application with one dashboard template and a stylesheet. Its current flow renders a configured campaign, calculates totals from an in-memory donation list, and accepts a direct name/amount POST. It does not yet implement the supplied 25:35 fundraiser model, moderation workflow, item drive, screenshot handling, authentication, or durable storage.
+The branch now contains a React/Vite frontend backed by Flask JSON APIs. Campaign settings, verified donations, pending submissions, moderation state, and screenshot metadata persist in a local SQLite store. Public totals are derived only from verified donations; pending submissions remain private to authenticated admins.
 
-The standalone `25_35 – Fundraiser Tracker.html` is a useful behavioral reference for the requested sections and admin concepts, but it depends on Claude-specific `db`, `user`, and `downloads` APIs. The Flask implementation should preserve the behavior and visual direction while replacing those APIs with application-owned services.
+The standalone `25_35 – Fundraiser Tracker.html` remains a visual/behavioral reference. The active implementation replaces its Claude-specific APIs with Flask services, JSON endpoints, SQLite persistence, private screenshot storage, and a React client.
+
+## Implementation status
+
+Completed:
+
+- React/Vite public experience with progress, item drive, donation form, campaign states, and hidden admin entry.
+- Flask JSON APIs for campaign data, submissions, admin login, moderation, settings, screenshot review, and CSV export.
+- Verified-only aggregation, goods valuation on the server, required screenshot uploads, private file storage, and cleanup after moderation.
+- SQLite persistence, secure session-cookie defaults, CSRF tokens, submission throttling, security headers, and retry-safe moderation.
+- API tests covering authorization, CSRF, rate limiting, screenshots, settings, end states, CSV export, and idempotent approval.
+
+Remaining:
+
+- Replace the lightweight SQLite state adapter with SQLAlchemy models and migrations for production portability.
+- Replace the development password with a production identity provider or managed admin accounts.
+- Add production object storage, upload retention policy, backups, and deployment configuration.
+- Add login throttling, stronger duplicate/replay detection, structured production logging, and a full browser smoke test.
+- Confirm campaign-specific product decisions: real cashtag, goal, dates, item targets, distribution language, tax language, and deployment target.
 
 ## Product decisions to confirm before implementation
 
@@ -20,7 +38,7 @@ The standalone `25_35 – Fundraiser Tracker.html` is a useful behavioral refere
 ### 1. Establish the application foundation
 
 - Refactor `app.py` into a small application factory and service-oriented Flask structure while keeping startup simple.
-- Add SQLAlchemy models/migrations for `CampaignSettings`, `Item`, `DonationSubmission`, `Donation`, and admin/user records or an external-auth mapping.
+- Add SQLAlchemy models/migrations for `CampaignSettings`, `Item`, `DonationSubmission`, `Donation`, and admin/user records or an external-auth mapping. The current branch uses a temporary SQLite JSON state adapter instead.
 - Add configuration from environment variables, a development seed command, structured error handling, CSRF protection, secure cookie settings, and an upload-size limit.
 - Add a test configuration and reusable fixtures so public, donor, and admin workflows can be tested without production services.
 
@@ -48,14 +66,14 @@ Acceptance criteria:
 
 - Add item cards showing collected quantity, target quantity, per-unit value, and progress.
 - Add a donor form with Cash versus Goods modes. Goods submissions calculate value from the selected item and quantity on the server; client-side calculation is only a convenience.
-- Add cash submission fields for amount, optional donor name/email, screenshot, and honeypot/rate-limit controls.
+- Add cash submission fields for amount, optional donor name/email, required screenshot, and honeypot/rate-limit controls.
 - Validate all fields server-side, normalize names/emails, reject invalid quantities/amounts, and prevent arbitrary item/value injection.
 - Store uploaded screenshots in private storage with generated names and metadata, never in public static files or unbounded database fields.
 - Provide a clear pending confirmation and avoid exposing pending submission details to public users.
 
 Acceptance criteria:
 
-- A public donor can submit goods without uploading a screenshot.
+- Every donor submission includes a screenshot that is validated and reviewed privately.
 - A cash submission cannot become counted without admin approval.
 - Oversized, non-image, malformed, and suspicious uploads are rejected safely.
 
@@ -106,8 +124,4 @@ Acceptance criteria:
 
 ## Approval gate
 
-Approve this plan after confirming the four product decisions above. After approval, implementation should happen on a dedicated branch named `feature/2535-fundraiser-buildout`, with each phase validated before the next phase begins.
-
-## Current blocker
-
-The opened workspace currently exposes no detectable Git metadata to the available version-control tooling, so the requested branch could not be created in this session. The implementation branch must be created from a Git-enabled checkout before code changes begin; the plan file can then be moved or committed on that branch.
+The implementation is proceeding on the dedicated `feature/2535-fundraiser-buildout` branch. Product decisions above remain launch inputs; placeholder campaign values are intentionally retained for development until confirmed.

@@ -90,7 +90,7 @@ requirements.txt           Python dependencies
 
 ## Current limitations
 
-The local app now persists campaign settings, donations, and screenshot metadata in SQLite. Every donation requires a screenshot. Screenshots are stored as generated files under `instance/uploads/`, limited to 1 MB, validated as PNG/JPEG/GIF/WebP, and deleted when approved or rejected. Baseline security headers are enabled. Before production launch, add CSRF protection, rate limiting, and a production authentication provider.
+The local app now persists campaign settings, donations, and screenshot metadata in SQLite. Every donation requires a screenshot. Screenshots are stored as generated files under `instance/uploads/`, limited to 1 MB, validated as PNG/JPEG/GIF/WebP, and deleted when approved or rejected. CSRF protection, submission throttling, secure session cookies, and baseline security headers are enabled. Before production launch, add a production authentication provider, external object storage, and a deployment backup/retention process.
 
 ## Validation
 

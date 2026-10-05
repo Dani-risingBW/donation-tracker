@@ -1,8 +1,10 @@
 import os
 import csv
 import io
+import secrets
+import time
 from pathlib import Path
-from datetime import datetime
+from datetime import date, datetime
 from uuid import uuid4
 
 from flask import Flask, flash, jsonify, make_response, redirect, render_template, request, send_file, send_from_directory, session, url_for
@@ -48,6 +50,7 @@ verified_donations = [
 ]
 pending_submissions = []
 moderation_log = {}
+submission_attempts = {}
 FRONTEND_DIST = Path(__file__).parent / "frontend" / "dist"
 UPLOAD_DIR = Path(os.environ.get("UPLOAD_DIR", Path(__file__).parent / "instance" / "uploads"))
 MAX_SCREENSHOT_BYTES = 1 * 1024 * 1024
@@ -104,6 +107,19 @@ def admin_required():
     return bool(session.get("admin_logged_in"))
 
 
+def allow_submission(client_id):
+    now = time.monotonic()
+    window = float(os.environ.get("SUBMISSION_RATE_WINDOW", "60"))
+    maximum = int(os.environ.get("SUBMISSION_RATE_LIMIT", "10"))
+    attempts = [attempt for attempt in submission_attempts.get(client_id, []) if now - attempt < window]
+    if len(attempts) >= maximum:
+        submission_attempts[client_id] = attempts
+        return False
+    attempts.append(now)
+    submission_attempts[client_id] = attempts
+    return True
+
+
 def positive_float(value, fallback):
     try:
         parsed = float(value)
@@ -118,6 +134,18 @@ def positive_int(value, fallback):
     except (TypeError, ValueError):
         return fallback
     return parsed if parsed > 0 else fallback
+
+
+def campaign_status():
+    if campaign.get("end_date"):
+        try:
+            if date.today() > date.fromisoformat(campaign["end_date"]):
+                return "ended"
+        except ValueError:
+            pass
+    if total_raised() >= float(campaign["goal"]):
+        return "goal_reached"
+    return "active"
 
 
 def save_screenshot(upload):
@@ -171,6 +199,7 @@ def public_payload():
         "donorCount": len(verified_donations),
         "itemTotals": item_totals(),
         "adminSession": admin_required(),
+        "campaignStatus": campaign_status(),
     }
 
 
@@ -192,6 +221,21 @@ def currency(value):
     return money(value)
 
 
+@app.before_request
+def protect_api_mutations():
+    if request.path.startswith("/api/") and request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+        expected = session.get("csrf_token")
+        provided = request.headers.get("X-CSRF-Token", "")
+        if not expected or not secrets.compare_digest(expected, provided):
+            return jsonify({"error": "Missing or invalid CSRF token."}), 403
+
+
+@app.route("/api/csrf")
+def api_csrf():
+    token = session.setdefault("csrf_token", secrets.token_urlsafe(32))
+    return jsonify({"token": token})
+
+
 @app.route("/api/campaign", methods=["GET"])
 def api_campaign():
     return jsonify(public_payload())
@@ -201,6 +245,10 @@ def api_campaign():
 def api_submit_donation():
     if request.method == "OPTIONS":
         return ("", 204)
+    if not allow_submission(request.remote_addr or "unknown"):
+        return jsonify({"error": "Too many submissions. Please try again later."}), 429
+    if campaign_status() != "active":
+        return jsonify({"error": "This fundraiser is no longer accepting submissions."}), 409
     data = request.get_json(silent=True) if request.is_json else request.form
     data = data or {}
     if data.get("honeypot"):
@@ -348,6 +396,9 @@ def frontend_asset(filename):
 def submit_donation():
     if request.form.get("honeypot"):
         flash("Submission rejected.", "error")
+        return redirect(url_for("dashboard"))
+    if campaign_status() != "active":
+        flash("This fundraiser is no longer accepting submissions.", "error")
         return redirect(url_for("dashboard"))
     name = (request.form.get("name") or "Anonymous").strip()[:80] or "Anonymous"
     email = (request.form.get("email") or "").strip()[:160]
