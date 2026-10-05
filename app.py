@@ -36,7 +36,7 @@ DEFAULT_ITEMS = [
 campaign = {
     "name": "25:35",
     "description": "Serving our unhoused neighbors in Washington, D.C. through practical care, prayer, and joyful outreach.",
-    "mission": "For I was hungry and you gave me something to eat, I was thirsty and you gave me something to drink.",
+    "mission": "For I was hungry and you gave me something to eat, I was thirsty and you gave me something to drink, I was a stranger and you invited me in.",
     "scripture": "Matthew 25:35",
     "goal": 1000.0,
     "cashtag": "$Spread2535",
