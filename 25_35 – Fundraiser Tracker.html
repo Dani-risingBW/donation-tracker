@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>25:35 – Fundraiser Tracker</title>
+<style>
+:root{--bg:#F9F6F0;--card:#FFFDF9;--tx:#001F3F;--mu:#4a5d73;--ac:#D99B26;--on:#F9F6F0;--ok:#15803d;--bd:#e6dccb;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.4 Georgia,serif}
+header{padding:10px 12px 6px;max-width:760px;margin:auto}h1{margin:0;font-size:1.3rem}header p{margin:2px 0;color:var(--mu)}h2{font-size:1.1rem;margin:0 0 6px}
+.tl{font:inherit;font-size:.72rem;letter-spacing:1.5px;text-transform:uppercase;font-weight:bold;background:none;border:0;border-bottom:3px solid transparent;color:var(--tx);padding:6px 2px 8px;white-space:nowrap;cursor:pointer;border-radius:0}
+.tl:hover{border-bottom-color:var(--ac)}
+nav{display:flex;justify-content:space-between;align-items:center;max-width:760px;margin:auto;padding:8px 12px;position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);z-index:9;border-bottom:1px solid var(--bd)}
+.dd{position:relative}.mb{font:inherit;font-size:.78rem;letter-spacing:1.5px;text-transform:uppercase;font-weight:bold;background:#001F3F;color:#F9F6F0;border:0;border-radius:8px;padding:7px 12px;cursor:pointer}
+.dm{display:none;position:absolute;right:0;top:110%;min-width:200px;background:var(--card);border:1px solid var(--bd);border-radius:12px;box-shadow:0 8px 24px rgba(0,31,63,.18);padding:6px;flex-direction:column}.dm.o{display:flex}
+.dm button{text-align:left;font:inherit;font-size:.8rem;letter-spacing:1.5px;text-transform:uppercase;font-weight:bold;background:none;border:0;border-left:3px solid transparent;color:var(--tx);padding:10px;cursor:pointer;border-radius:6px}.dm button:hover{background:var(--bg)}.dm button.on{border-left-color:var(--ac)}
+main{max-width:760px;margin:auto;padding:2px 12px 16px}section{display:none}section.on{display:block}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:10px 12px;margin:8px 0}
+.bar{height:16px;background:var(--bd);border-radius:99px;overflow:hidden}.bar i{display:block;height:100%;background:var(--ac);transition:width .6s}.bar.s{height:7px}
+.big{font-size:1.6rem;font-weight:bold}.mu{color:var(--mu);font-size:.9rem}.ok{color:var(--ok)}
+label{display:block;margin:6px 0 2px;font-size:.85rem}input,select,textarea,button.p{font:inherit;width:100%;padding:7px;border:1px solid var(--bd);border-radius:10px;background:#fff;color:var(--tx)}
+button.p{background:#001F3F;color:#F9F6F0;font-weight:bold;border:0;cursor:pointer;margin-top:12px}button.g{background:none;border:1px solid var(--bd);color:var(--tx);border-radius:8px;padding:6px 10px;font:inherit;cursor:pointer}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px}.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.tog{display:flex;gap:8px}.tog button{flex:1}table{width:100%;border-collapse:collapse}td,th{padding:3px 4px;border-bottom:1px solid var(--bd);text-align:left;font-size:.9rem}.sc{overflow-x:auto}
+#qr{display:flex;justify-content:center;padding:12px;background:#fff;border-radius:10px;width:max-content;margin:6px auto;padding:8px}
+a{color:var(--tx);text-decoration:underline var(--ac) 2px}header{border-bottom:4px solid var(--ac)}h1{font-size:1.5rem!important;letter-spacing:2px}.verse{font-style:italic;font-size:.78rem;line-height:1.3;color:var(--tx)!important;margin:2px 0 4px!important}.verse span{font-style:normal;font-size:.72rem;color:var(--mu)}.cv{text-align:center;padding:18px 6px}.cn{font-size:3.6rem;font-weight:bold;letter-spacing:4px;border-bottom:4px solid var(--ac);display:inline-block;padding:0 12px}.cv .verse{font-size:1rem;margin:12px 0!important}.ms{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:10px 14px;margin:14px 0}.ms p{margin:4px 0}.cv button.p{max-width:260px;display:block;margin:8px auto}.mn{display:flex;flex-direction:column;align-items:center;gap:4px;margin:10px 0}.mn .tl{font-size:.95rem;letter-spacing:2px;padding:10px 4px}button.gd{background:var(--ac)!important;color:#001F3F!important;letter-spacing:2px;text-transform:uppercase}.ht{font:inherit;font-size:1.3rem;letter-spacing:inherit;font-weight:bold;color:var(--tx);background:none;border:0;padding:0;cursor:pointer;border-bottom:3px solid var(--ac)}.ht:hover{opacity:.75}footer{text-align:center;color:var(--mu);padding:8px;font-size:.75rem}img.shot{max-width:100%;max-height:160px;border-radius:8px}
+</style></head><body>
+<nav id="nav"></nav>
+<main>
+<section id="cover"></section>
+<section id="home"></section>
+<section id="items"></section>
+<section id="donate"></section>
+<section id="log"></section>
+<section id="contact"></section>
+<section id="admin"></section>
+</main>
+<footer>Contact: <a href="mailto:spreadmattew2535@gmail.com">spreadmattew2535@gmail.com</a><br>Donations may not be tax-deductible unless we state otherwise.</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+const DEF_ITEMS=[["Knit Beanies",8,50],["Warm Mittens",6,50],["Fleece Scarves",10,40],["Cold Sandwiches (deli or PB&J)",4,100],["Fruit Cups & Soft Granola Bars",2,100],["Bottled Water",1,200],["Travel Toothbrush & Toothpaste Kit",3,60],["Travel Deodorant",3,60],["Wet Wipes (packs)",2,80],["Feminine Hygiene Items (pads/tampons)",5,60],["Drawstring / Cinch Bags",3,60]].map(([name,value,target],i)=>({id:"i"+i,name,value,target}));
+const DEF_CFG={goal:1000,endDate:"",cashtag:"$YourCashtag",items:DEF_ITEMS};
+let cfg=DEF_CFG,donations=[],subs=[],db=null,user=null,isAdmin=false,tab="home";
+const $=s=>document.querySelector(s),esc=t=>String(t??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const money=n=>"$"+Number(n||0).toLocaleString(undefined,{maximumFractionDigits:2});
+const tabs=()=>[["cover","Welcome"],["home","Progress"],["items","Item Drive"],["donate","Where to Donate"],["log","I Donated"],["contact","Contact"]].concat(isAdmin?[["admin","Admin"]]:[]);
+function nav(){$("#nav").innerHTML=`<button class="ht" style="visibility:${tab=="cover"?"hidden":"visible"}" onclick="go('cover')" aria-label="Go to home page">25:35</button><div class="dd"><button class="mb" onclick="event.stopPropagation();$('#dm').classList.toggle('o')">☰ Menu</button><div class="dm" id="dm">${tabs().map(([k,l])=>`<button class="${k==tab?"on":""}" onclick="go('${k}')">${l}</button>`).join("")}</div></div>`}
+document.addEventListener("click",()=>{const m=$("#dm");m&&m.classList.remove("o")});
+function go(t){tab=t;document.querySelectorAll("section").forEach(s=>s.classList.toggle("on",s.id==t));nav();render()}
+const total=()=>donations.reduce((a,d)=>a+Number(d.value||0),0);
+const collected=id=>donations.filter(d=>d.itemId==id).reduce((a,d)=>a+Number(d.qty||0),0);
+function bar(p,s){return `<div class="bar ${s?"s":""}"><i style="width:${Math.min(100,p)}%"></i></div>`}
+function render(){
+ $("#cover").innerHTML=`<div class="cv"><div class="cn">25:35</div><p class="verse">“For I was hungry and you gave me something to eat, I was thirsty and you gave me something to drink, I was a stranger and you invited me in.”<br><span>— Matthew 25:35</span></p><div class="ms"><b>Our Mission</b><p>A college-student outreach non-profit organization in Washington, D.C., dedicated to joyfully serving, praying for, and giving to the unhoused community through faith in God.</p></div><div class="mn">${tabs().filter(x=>x[0]!="cover").map(([k,l])=>`<button class="tl" onclick="go('${k}')">${l}</button>`).join("")}</div><button class="p gd" onclick="go('donate')">Give now</button></div>`;
+ const t=total(),p=cfg.goal?t/cfg.goal*100:0;
+ const left=cfg.endDate?Math.ceil((new Date(cfg.endDate)-Date.now())/864e5):null;
+ const ms=[25,50,75,100].filter(m=>p>=m).pop();
+ $("#home").innerHTML=`<div class="card"><div class="mu">Raised so far</div><div class="big">${money(t)} <span class="mu">of ${money(cfg.goal)}</span></div>${bar(p)}
+ <p class="mu">${p.toFixed(0)}% funded${left!=null?` · ${left>0?left+" days left":"fundraiser ended"}`:""}${ms?` · 🎉 ${ms}% milestone reached${ms==100?" – goal met!":""}`:""}</p></div>
+ <div class="card"><b>Recent verified gifts</b><table>${donations.slice(0,8).map(d=>`<tr><td>${esc(d.name||"Anonymous")}</td><td>${d.type=="goods"?esc(d.qty+" × "+d.itemName):"Cash"}</td><td>${money(d.value)}</td></tr>`).join("")||"<tr><td class=mu>No donations yet – be the first!</td></tr>"}</table></div>
+ <div class="card"><b>Where the items go</b><p class="mu">Everything collected is distributed directly to neighbors in need. Edit this text to describe your distribution plan.</p></div>`;
+ $("#items").innerHTML=`<div class="grid">${cfg.items.map(i=>{const c=collected(i.id);return `<div class="card"><b>${esc(i.name)}</b><div class="mu">${money(i.value)} each</div>${bar(c/i.target*100,1)}<div class="mu">${c} / ${i.target}</div></div>`}).join("")}</div>`;
+ $("#donate").innerHTML=`<div class="card" style="text-align:center"><h2>Give with Cash App</h2><div class="big">${esc(cfg.cashtag)}</div><div id="qr"></div>
+ <div class="row" style="justify-content:center"><button class="g" onclick="navigator.clipboard.writeText('${esc(cfg.cashtag)}');this.textContent='Copied!'">Copy cashtag</button><a href="https://cash.app/${esc(cfg.cashtag)}"><button class="g">Open Cash App</button></a></div>
+ <p class="mu">After donating, open <b>I Donated</b> to add your gift to the progress bar.</p></div>
+ <div class="card"><b>Donating items?</b><p class="mu">Email us for drop-off details: <a href="mailto:spreadmattew2535@gmail.com">spreadmattew2535@gmail.com</a></p></div>`;
+ if(tab=="donate"&&window.QRCode)new QRCode($("#qr"),{text:"https://cash.app/"+cfg.cashtag,width:130,height:130});
+ if(tab=="log")logForm();
+ $("#contact").innerHTML=`<div class="card"><h2>Contact us</h2><p>Questions, drop-offs, volunteering, or press:</p><p><a href="mailto:spreadmattew2535@gmail.com">spreadmattew2535@gmail.com</a></p></div>`;
+ if(tab=="admin"&&isAdmin)adminView();
+}
+let mode="cash",shot=null;
+function logForm(){
+ if(!db){$("#log").innerHTML=`<div class="card">Please open this page signed in to Claude to submit a donation, or email us your screenshot at <a href="mailto:spreadmattew2535@gmail.com">spreadmattew2535@gmail.com</a>.</div>`;return}
+ if($("#lf"))return;
+ $("#log").innerHTML=`<div class="card" id="lf"><h2>Add my donation</h2><div class="tog"><button class="g" id="mc">Cash App</button><button class="g" id="mg">Goods</button></div>
+ <label>Name (optional)</label><input id="ln" maxlength="40">
+ <div id="cashf"><label>Amount donated ($)</label><input id="la" type="number" min="1" step="0.01"><label>Cash App screenshot</label><input id="ls" type="file" accept="image/*"><div id="pv"></div></div>
+ <div id="goodf"><label>Item</label><select id="li">${cfg.items.map(i=>`<option value="${i.id}">${esc(i.name)} (${money(i.value)})</option>`).join("")}</select><label>Quantity</label><input id="lq" type="number" min="1" value="1"><p class="mu" id="lv"></p></div>
+ <label>Email (optional, for a thank-you)</label><input id="le" type="email"><input id="hp" style="display:none" tabindex="-1" autocomplete="off">
+ <button class="p" id="lsub">Submit for review</button><p class="mu" id="lm">Submissions are reviewed by an admin before they count. Screenshots are visible only to admins.</p></div>`;
+ const sw=m=>{mode=m;$("#cashf").style.display=m=="cash"?"":"none";$("#goodf").style.display=m=="goods"?"":"none";$("#mc").style.fontWeight=m=="cash"?"bold":"";$("#mg").style.fontWeight=m=="goods"?"bold":""};
+ $("#mc").onclick=()=>sw("cash");$("#mg").onclick=()=>sw("goods");sw(mode);
+ const upd=()=>{const it=cfg.items.find(i=>i.id==$("#li").value);$("#lv").textContent="Value: "+money(it.value*($("#lq").value||0))};$("#li").onchange=$("#lq").oninput=upd;upd();
+ $("#ls").onchange=e=>{const f=e.target.files[0];if(!f)return;const im=new Image();im.onload=()=>{const k=Math.min(1,900/im.width),c=document.createElement("canvas");c.width=im.width*k;c.height=im.height*k;c.getContext("2d").drawImage(im,0,0,c.width,c.height);shot=c.toDataURL("image/jpeg",.6);$("#pv").innerHTML=`<img class="shot" src="${shot}">`};im.src=URL.createObjectURL(f)};
+ $("#lsub").onclick=async()=>{
+  if($("#hp").value)return;const m=$("#lm");let s={type:mode,name:$("#ln").value.trim(),email:$("#le").value.trim(),status:"pending",created:Date.now()};
+  if(mode=="cash"){s.amount=+$("#la").value;if(!(s.amount>0))return m.textContent="Enter the amount you donated.";if(!shot)return m.textContent="Please attach your screenshot.";s.shot=shot;s.value=s.amount}
+  else{const it=cfg.items.find(i=>i.id==$("#li").value);s.itemId=it.id;s.itemName=it.name;s.qty=+$("#lq").value;if(!(s.qty>0))return m.textContent="Enter a quantity.";s.value=s.qty*it.value}
+  try{await db.collection("submissions").doc("s"+Date.now()+Math.random().toString(36).slice(2,6)).set(s);shot=null;$("#log").innerHTML=`<div class="card"><h2>Thank you! 💛</h2><p>Your submission is pending review. It will appear on the tracker once verified.</p></div>`}catch(e){m.textContent="Could not submit: "+(e.message||e.code)}}
+}
+function adminView(){
+ const pend=subs.filter(s=>s.status=="pending");
+ $("#admin").innerHTML=`<div class="card"><h2>Review queue (${pend.length})</h2>${pend.map(s=>`<div class="card"><b>${esc(s.name||"Anonymous")}</b> · ${s.type=="cash"?"Cash "+money(s.amount):esc(s.qty+" × "+s.itemName)} · ${money(s.value)}<div class="mu">${new Date(s.created).toLocaleString()} ${esc(s.email)}</div>${s.shot?`<img class="shot" src="${s.shot}">`:""}<div class="row"><button class="g" onclick="decide('${s.id}',1)">✅ Approve</button><button class="g" onclick="decide('${s.id}',0)">❌ Reject</button></div></div>`).join("")||'<p class="mu">Nothing pending.</p>'}</div>
+ <div class="card"><h2>Add manual entry</h2><div class="row"><input id="mn" placeholder="Name" style="flex:1"><input id="mv" type="number" placeholder="$ value" style="flex:1"><button class="g" onclick="manual()">Add</button></div></div>
+ <div class="card"><h2>Settings</h2><label>Goal ($)</label><input id="cg" type="number" value="${cfg.goal}"><label>End date</label><input id="ce" type="date" value="${cfg.endDate}"><label>Cash tag</label><input id="ct" value="${esc(cfg.cashtag)}">
+ <label>Items (value $ / target qty)</label>${cfg.items.map((i,n)=>`<div class="row"><span style="flex:2">${esc(i.name)}</span><input style="flex:1" id="iv${n}" type="number" value="${i.value}"><input style="flex:1" id="it${n}" type="number" value="${i.target}"></div>`).join("")}
+ <button class="p" onclick="saveCfg()">Save settings</button></div>
+ <div class="card"><button class="g" onclick="csv()">Download CSV</button> <button class="g" onclick="delAll()">Delete reviewed screenshots</button></div>`;
+}
+async function decide(id,ok){const s=subs.find(x=>x.id==id);try{if(ok){const{shot,...d}=s;d.status="verified";await db.collection("donations").doc(id).set(d)}
+ await db.collection("submissions").doc(id).update({status:ok?"approved":"rejected",...(ok?{shot:null}:{})})}catch(e){alert(e.message)}}
+async function manual(){const v=+$("#mv").value;if(!v)return;await db.collection("donations").doc("m"+Date.now()).set({type:"cash",name:$("#mn").value||"Anonymous",value:v,created:Date.now()})}
+async function saveCfg(){const items=cfg.items.map((i,n)=>({...i,value:+$("#iv"+n).value,target:+$("#it"+n).value}));await db.doc("config/main").set({goal:+$("#cg").value,endDate:$("#ce").value,cashtag:$("#ct").value,items});alert("Saved")}
+async function delAll(){for(const s of subs.filter(s=>s.status!="pending"&&s.shot))await db.collection("submissions").doc(s.id).update({shot:null})}
+function csv(){const r=[["date","name","type","item","qty","value"],...donations.map(d=>[new Date(d.created).toISOString(),d.name||"",d.type,d.itemName||"",d.qty||"",d.value])];
+ const t=r.map(a=>a.map(x=>`"${String(x).replace(/"/g,'""')}"`).join(",")).join("\n");claude.use("downloads").then(d=>d?d.save({filename:"donations.csv",data:t}):alert("Download unavailable"))}
+function snap(q,fn){q.onSnapshot(s=>fn(s.docs.map(d=>({id:d.id,...d.data()}))),()=>{})}
+(async()=>{go("cover");
+ try{db=await claude.use("db");user=await claude.use("user");isAdmin=!!(user&&user.canEdit());nav()}catch(e){}
+ if(!db)return;
+ try{db.doc("config/main").onSnapshot(s=>{if(s.exists)cfg={...DEF_CFG,...s.data()};render()},()=>{})}catch(e){}
+ snap(db.collection("donations"),a=>{donations=a.sort((x,y)=>y.created-x.created);render()});
+ if(isAdmin)snap(db.collection("submissions"),a=>{subs=a.sort((x,y)=>y.created-x.created);render()});
+ render()})();
+</script></body></html>
