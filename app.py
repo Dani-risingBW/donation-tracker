@@ -40,7 +40,7 @@ campaign = {
     "scripture": "Matthew 25:35",
     "goal": 1000.0,
     "cashtag": "$Spread2535",
-    "end_date": "",
+    "end_date": "2026-11-12",
     "event_start": "2026-11-13",
     "event_end": "2026-11-14",
     "items": [item.copy() for item in DEFAULT_ITEMS],

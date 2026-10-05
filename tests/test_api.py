@@ -24,6 +24,7 @@ def client():
     pending_submissions.clear()
     moderation_log.clear()
     app_module.submission_attempts.clear()
+    campaign["end_date"] = ""  # keep tests independent of the real closing date
     app.config.update(TESTING=True)
     with app.test_client() as test_client:
         yield test_client
