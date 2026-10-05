@@ -6,7 +6,7 @@
 
 - Public 25:35 mission, scripture, progress, and item-drive sections
 - Cash and goods donation submissions with server-side validation
-- Optional private payment screenshots for admin review
+- Required private payment screenshots for admin review
 - Admin login, approval/rejection queue, and campaign settings
 - Verified-only public totals and item quantities
 - Health endpoint at `/health`
@@ -89,7 +89,7 @@ requirements.txt           Python dependencies
 
 ## Current limitations
 
-The local app now persists campaign settings, donations, and screenshot metadata in SQLite. Screenshots are stored as generated files under `instance/uploads/`, limited to 1 MB, validated as PNG/JPEG/GIF/WebP, and deleted when approved or rejected. Before production launch, add CSRF protection, rate limiting, and a production authentication provider.
+The local app now persists campaign settings, donations, and screenshot metadata in SQLite. Every donation requires a screenshot. Screenshots are stored as generated files under `instance/uploads/`, limited to 1 MB, validated as PNG/JPEG/GIF/WebP, and deleted when approved or rejected. Before production launch, add CSRF protection, rate limiting, and a production authentication provider.
 
 ## Validation
 

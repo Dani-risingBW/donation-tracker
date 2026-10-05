@@ -6,6 +6,8 @@ import pytest
 import app as app_module
 from app import app, campaign, moderation_log, pending_submissions, persist_state, verified_donations
 
+PNG = b"\x89PNG\r\n\x1a\n" + b"test image bytes"
+
 
 @pytest.fixture
 def client():
@@ -31,13 +33,21 @@ def client():
 
 def test_public_campaign_excludes_pending_donations(client):
     before = client.get("/api/campaign").get_json()["totalRaised"]
-    response = client.post("/api/submissions", json={"type": "cash", "amount": 50, "name": "Pending Donor"})
+    response = client.post(
+        "/api/submissions",
+        data={"type": "cash", "amount": "50", "name": "Pending Donor", "screenshot": (BytesIO(PNG), "receipt.png")},
+        content_type="multipart/form-data",
+    )
     assert response.status_code == 201
     assert client.get("/api/campaign").get_json()["totalRaised"] == before
 
 
 def test_admin_can_approve_once_and_retry_safely(client):
-    client.post("/api/submissions", json={"type": "goods", "itemId": "water", "quantity": 3})
+    client.post(
+        "/api/submissions",
+        data={"type": "goods", "itemId": "water", "quantity": "3", "screenshot": (BytesIO(PNG), "receipt.png")},
+        content_type="multipart/form-data",
+    )
     assert client.post("/api/admin/login", json={"password": "admin123"}).status_code == 200
     submission_id = client.get("/api/admin/review").get_json()["pending"][0]["id"]
 
@@ -74,3 +84,9 @@ def test_screenshot_is_private_and_cleaned_after_approval(client, tmp_path):
     assert client.get(f"/api/admin/submissions/{submission_id}/screenshot").status_code == 200
     assert client.post(f"/api/admin/submissions/{submission_id}/approve").status_code == 200
     assert not stored_path.exists()
+
+
+def test_submission_without_screenshot_is_rejected(client):
+    response = client.post("/api/submissions", json={"type": "cash", "amount": 25})
+    assert response.status_code == 400
+    assert "screenshot is required" in response.get_json()["error"].lower()

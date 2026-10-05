@@ -219,6 +219,8 @@ def api_submit_donation():
         return jsonify({"error": "Choose a supported donation type."}), 400
     try:
         screenshot = save_screenshot(request.files.get("screenshot"))
+        if not screenshot:
+            raise ValueError("A payment screenshot is required for every donation.")
     except ValueError as error:
         return jsonify({"error": str(error)}), 400
     if screenshot:
@@ -350,6 +352,8 @@ def submit_donation():
 
     try:
         screenshot = save_screenshot(request.files.get("screenshot"))
+        if not screenshot:
+            raise ValueError("A payment screenshot is required for every donation.")
     except ValueError as error:
         flash(str(error), "error")
         return redirect(url_for("dashboard"))
