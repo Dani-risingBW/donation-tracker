@@ -1,13 +1,20 @@
 import os
 from pathlib import Path
 from datetime import datetime
+from uuid import uuid4
 
-from flask import Flask, flash, jsonify, redirect, render_template, request, send_from_directory, session, url_for
+from flask import Flask, flash, jsonify, redirect, render_template, request, send_file, send_from_directory, session, url_for
+from werkzeug.utils import secure_filename
+
+from storage import load_state, save_state
 
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-key")
 app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_SECURE"] = os.environ.get("COOKIE_SECURE", "0") == "1"
 
 DEFAULT_ITEMS = [
     {"id": "beanies", "name": "Knit Beanies", "value": 8, "target": 50},
@@ -38,7 +45,36 @@ verified_donations = [
     {"id": "seed-2", "name": "Jordan L.", "type": "goods", "item_id": "water", "item_name": "Bottled Water", "quantity": 10, "value": 10.0, "date": "2026-09-26"},
 ]
 pending_submissions = []
+moderation_log = {}
 FRONTEND_DIST = Path(__file__).parent / "frontend" / "dist"
+UPLOAD_DIR = Path(os.environ.get("UPLOAD_DIR", Path(__file__).parent / "instance" / "uploads"))
+MAX_SCREENSHOT_BYTES = 1 * 1024 * 1024
+SCREENSHOT_TYPES = {
+    "image/png": ("png", b"\x89PNG\r\n\x1a\n"),
+    "image/jpeg": ("jpg", b"\xff\xd8\xff"),
+    "image/gif": ("gif", b"GIF8"),
+    "image/webp": ("webp", b"RIFF"),
+}
+
+state = load_state({
+    "campaign": campaign,
+    "verified_donations": verified_donations,
+    "pending_submissions": pending_submissions,
+    "moderation_log": moderation_log,
+})
+campaign = state["campaign"]
+verified_donations = state["verified_donations"]
+pending_submissions = state["pending_submissions"]
+moderation_log = state.get("moderation_log", {})
+
+
+def persist_state():
+    save_state({
+        "campaign": campaign,
+        "verified_donations": verified_donations,
+        "pending_submissions": pending_submissions,
+        "moderation_log": moderation_log,
+    })
 
 
 def money(value):
@@ -82,6 +118,45 @@ def positive_int(value, fallback):
     return parsed if parsed > 0 else fallback
 
 
+def save_screenshot(upload):
+    if not upload or not upload.filename:
+        return None
+    raw = upload.read(MAX_SCREENSHOT_BYTES + 1)
+    if len(raw) > MAX_SCREENSHOT_BYTES:
+        raise ValueError("Screenshot must be 1 MB or smaller.")
+    mime = upload.mimetype
+    type_info = SCREENSHOT_TYPES.get(mime)
+    if not type_info:
+        raise ValueError("Screenshot must be a PNG, JPEG, GIF, or WebP image.")
+    extension, signature = type_info
+    if not raw.startswith(signature) or (mime == "image/webp" and raw[8:12] != b"WEBP"):
+        raise ValueError("Screenshot content does not match its image type.")
+    storage_name = f"{uuid4().hex}.{extension}"
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    (UPLOAD_DIR / storage_name).write_bytes(raw)
+    original_name = secure_filename(upload.filename) or f"screenshot.{extension}"
+    return {"storageName": storage_name, "originalName": original_name[:120], "mime": mime, "size": len(raw)}
+
+
+def delete_screenshot(submission):
+    screenshot = submission.get("screenshot") if submission else None
+    if screenshot and screenshot.get("storageName"):
+        (UPLOAD_DIR / screenshot["storageName"]).unlink(missing_ok=True)
+
+
+def admin_submission_payload(submission):
+    payload = {key: value for key, value in submission.items() if key != "email"}
+    if submission.get("email"):
+        payload["email"] = submission["email"]
+    if submission.get("screenshot"):
+        payload["screenshot"] = {
+            key: submission["screenshot"][key]
+            for key in ("originalName", "mime", "size")
+        }
+        payload["screenshot"]["url"] = url_for("api_admin_screenshot", submission_id=submission["id"])
+    return payload
+
+
 def public_payload():
     raised = total_raised()
     goal = float(campaign["goal"])
@@ -121,7 +196,8 @@ def api_campaign():
 def api_submit_donation():
     if request.method == "OPTIONS":
         return ("", 204)
-    data = request.get_json(silent=True) or {}
+    data = request.get_json(silent=True) if request.is_json else request.form
+    data = data or {}
     if data.get("honeypot"):
         return jsonify({"error": "Submission rejected."}), 400
     name = str(data.get("name") or "Anonymous").strip()[:80] or "Anonymous"
@@ -134,14 +210,21 @@ def api_submit_donation():
             return jsonify({"error": "Enter a valid cash amount greater than zero."}), 400
         submission.update({"value": amount, "amount": amount})
     elif donation_type == "goods":
-        item = get_item(data.get("itemId"))
+        item = get_item(data.get("itemId") or data.get("item_id"))
         quantity = positive_int(data.get("quantity"), 0)
         if not item or quantity <= 0:
             return jsonify({"error": "Choose a valid item and quantity."}), 400
         submission.update({"item_id": item["id"], "item_name": item["name"], "quantity": quantity, "value": item["value"] * quantity})
     else:
         return jsonify({"error": "Choose a supported donation type."}), 400
+    try:
+        screenshot = save_screenshot(request.files.get("screenshot"))
+    except ValueError as error:
+        return jsonify({"error": str(error)}), 400
+    if screenshot:
+        submission["screenshot"] = screenshot
     pending_submissions.insert(0, submission)
+    persist_state()
     return jsonify({"message": "Thank you. Your donation is pending review."}), 201
 
 
@@ -160,7 +243,20 @@ def api_admin_login():
 def api_admin_review():
     if not admin_required():
         return jsonify({"error": "unauthorized"}), 401
-    return jsonify({"pending": pending_submissions, "verified": verified_donations})
+    return jsonify({"pending": [admin_submission_payload(entry) for entry in pending_submissions], "verified": verified_donations})
+
+
+@app.route("/api/admin/submissions/<submission_id>/screenshot")
+def api_admin_screenshot(submission_id):
+    if not admin_required():
+        return jsonify({"error": "unauthorized"}), 401
+    submission = next((entry for entry in pending_submissions if entry["id"] == submission_id), None)
+    if not submission or not submission.get("screenshot"):
+        return jsonify({"error": "Screenshot not found."}), 404
+    screenshot_path = UPLOAD_DIR / submission["screenshot"]["storageName"]
+    if not screenshot_path.is_file():
+        return jsonify({"error": "Screenshot not found."}), 404
+    return send_file(screenshot_path, mimetype=submission["screenshot"]["mime"], as_attachment=False, download_name=submission["screenshot"]["originalName"])
 
 
 @app.route("/api/admin/submissions/<submission_id>/<action>", methods=["POST"])
@@ -168,11 +264,21 @@ def api_admin_moderate(submission_id, action):
     if not admin_required():
         return jsonify({"error": "unauthorized"}), 401
     submission = next((entry for entry in pending_submissions if entry["id"] == submission_id), None)
-    if not submission or action not in {"approve", "reject"}:
+    if action not in {"approve", "reject"}:
+        return jsonify({"error": "Unsupported moderation action."}), 400
+    if not submission and submission_id in moderation_log:
+        return jsonify(public_payload())
+    if not submission:
         return jsonify({"error": "Submission not found."}), 404
     if action == "approve":
         verified_donations.insert(0, {key: value for key, value in submission.items() if key != "email"})
+        delete_screenshot(submission)
+        verified_donations[0].pop("screenshot", None)
+    else:
+        delete_screenshot(submission)
+    moderation_log[submission_id] = action + "d"
     pending_submissions.remove(submission)
+    persist_state()
     return jsonify(public_payload())
 
 
@@ -187,6 +293,7 @@ def api_admin_settings():
     campaign["cashtag"] = str(data.get("cashtag") or campaign["cashtag"]).strip()
     campaign["end_date"] = str(data.get("endDate", campaign["end_date"]))
     campaign["distribution"] = str(data.get("distribution") or campaign["distribution"]).strip()
+    persist_state()
     return jsonify({"campaign": campaign})
 
 
@@ -241,7 +348,15 @@ def submit_donation():
         flash("Choose a supported donation type.", "error")
         return redirect(url_for("dashboard"))
 
+    try:
+        screenshot = save_screenshot(request.files.get("screenshot"))
+    except ValueError as error:
+        flash(str(error), "error")
+        return redirect(url_for("dashboard"))
+    if screenshot:
+        submission["screenshot"] = screenshot
     pending_submissions.insert(0, submission)
+    persist_state()
     flash("Thank you. Your donation is pending review.", "success")
     return redirect(url_for("dashboard"))
 
@@ -275,10 +390,15 @@ def approve_submission(submission_id):
         return jsonify({"error": "unauthorized"}), 401
     submission = next((entry for entry in pending_submissions if entry["id"] == submission_id), None)
     if not submission:
+        if submission_id in moderation_log:
+            return redirect(url_for("admin_dashboard"))
         flash("Submission not found.", "error")
         return redirect(url_for("admin_dashboard"))
-    verified_donations.insert(0, {key: value for key, value in submission.items() if key != "email"})
+    verified_donations.insert(0, {key: value for key, value in submission.items() if key not in {"email", "screenshot"}})
+    delete_screenshot(submission)
+    moderation_log[submission_id] = "approved"
     pending_submissions.remove(submission)
+    persist_state()
     flash("Donation approved and added to public totals.", "success")
     return redirect(url_for("admin_dashboard"))
 
@@ -287,7 +407,16 @@ def approve_submission(submission_id):
 def reject_submission(submission_id):
     if not admin_required():
         return jsonify({"error": "unauthorized"}), 401
+    if submission_id in moderation_log:
+        return redirect(url_for("admin_dashboard"))
+    submission = next((entry for entry in pending_submissions if entry["id"] == submission_id), None)
+    if not submission:
+        flash("Submission not found.", "error")
+        return redirect(url_for("admin_dashboard"))
+    delete_screenshot(submission)
     pending_submissions[:] = [entry for entry in pending_submissions if entry["id"] != submission_id]
+    moderation_log[submission_id] = "rejected"
+    persist_state()
     flash("Submission rejected.", "success")
     return redirect(url_for("admin_dashboard"))
 
@@ -306,6 +435,7 @@ def admin_settings():
             "value": positive_float(request.form.get(f"item_value_{item['id']}"), item["value"]),
             "target": positive_int(request.form.get(f"item_target_{item['id']}"), item["target"]),
         } for item in DEFAULT_ITEMS]
+        persist_state()
         flash("Campaign settings saved.", "success")
         return redirect(url_for("admin_dashboard"))
     return render_template("admin_settings.html", campaign=campaign)
