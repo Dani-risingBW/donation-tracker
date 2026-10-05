@@ -64,6 +64,17 @@ def test_admin_api_requires_authentication(client):
     assert client.post("/api/admin/submissions/missing/approve").status_code == 401
 
 
+def test_admin_can_export_verified_csv(client):
+    assert client.get("/api/admin/export.csv").status_code == 401
+    client.post("/api/admin/login", json={"password": "admin123"})
+    response = client.get("/api/admin/export.csv")
+    body = response.get_data(as_text=True)
+    assert response.status_code == 200
+    assert response.mimetype == "text/csv"
+    assert "id,name,type,value,item,quantity,date" in body
+    assert "Amina O." in body
+
+
 def test_screenshot_is_private_and_cleaned_after_approval(client, tmp_path):
     app_module.UPLOAD_DIR = tmp_path
     image = b"\x89PNG\r\n\x1a\n" + b"test image bytes"

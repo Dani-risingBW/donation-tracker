@@ -1,9 +1,11 @@
 import os
+import csv
+import io
 from pathlib import Path
 from datetime import datetime
 from uuid import uuid4
 
-from flask import Flask, flash, jsonify, redirect, render_template, request, send_file, send_from_directory, session, url_for
+from flask import Flask, flash, jsonify, make_response, redirect, render_template, request, send_file, send_from_directory, session, url_for
 from werkzeug.utils import secure_filename
 
 from storage import load_state, save_state
@@ -174,6 +176,9 @@ def public_payload():
 
 @app.after_request
 def add_api_headers(response):
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     if request.path.startswith("/api/"):
         response.headers["Access-Control-Allow-Origin"] = os.environ.get("FRONTEND_ORIGIN", "http://localhost:5173")
         response.headers["Access-Control-Allow-Credentials"] = "true"
@@ -246,6 +251,25 @@ def api_admin_review():
     if not admin_required():
         return jsonify({"error": "unauthorized"}), 401
     return jsonify({"pending": [admin_submission_payload(entry) for entry in pending_submissions], "verified": verified_donations})
+
+
+@app.route("/api/admin/export.csv")
+def api_admin_export():
+    if not admin_required():
+        return jsonify({"error": "unauthorized"}), 401
+    output = io.StringIO(newline="")
+    writer = csv.writer(output)
+    writer.writerow(["id", "name", "type", "value", "item", "quantity", "date"])
+    for donation in verified_donations:
+        writer.writerow([
+            donation.get("id", ""), donation.get("name", ""), donation.get("type", ""),
+            donation.get("value", ""), donation.get("item_name", ""),
+            donation.get("quantity", ""), donation.get("date", ""),
+        ])
+    response = make_response(output.getvalue())
+    response.headers["Content-Type"] = "text/csv; charset=utf-8"
+    response.headers["Content-Disposition"] = "attachment; filename=verified-donations.csv"
+    return response
 
 
 @app.route("/api/admin/submissions/<submission_id>/screenshot")
