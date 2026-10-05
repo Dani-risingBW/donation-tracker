@@ -37,7 +37,7 @@ campaign = {
     "mission": "For I was hungry and you gave me something to eat, I was thirsty and you gave me something to drink.",
     "scripture": "Matthew 25:35",
     "goal": 1000.0,
-    "cashtag": "$YourCashtag",
+    "cashtag": "$Spread2535",
     "end_date": "",
     "items": [item.copy() for item in DEFAULT_ITEMS],
     "distribution": "Gifts support direct outreach and practical care for neighbors in need throughout the DC area.",
