@@ -41,6 +41,8 @@ campaign = {
     "goal": 1000.0,
     "cashtag": "$Spread2535",
     "end_date": "",
+    "event_start": "2026-11-13",
+    "event_end": "2026-11-14",
     "items": [item.copy() for item in DEFAULT_ITEMS],
     "distribution": "Gifts support direct outreach and practical care for neighbors in need throughout the DC area.",
     "contact_email": "spreadmatthew2535@gmail.com",
@@ -69,6 +71,9 @@ state = load_state({
     "pending_submissions": pending_submissions,
     "moderation_log": moderation_log,
 })
+# Campaigns saved before a setting existed pick up its default.
+for key, value in campaign.items():
+    state["campaign"].setdefault(key, value)
 campaign = state["campaign"]
 verified_donations = state["verified_donations"]
 pending_submissions = state["pending_submissions"]
