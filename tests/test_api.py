@@ -150,3 +150,17 @@ def test_ended_campaign_rejects_new_submissions(client):
     )
     assert response.status_code == 409
     assert "no longer accepting" in response.get_json()["error"].lower()
+
+def test_goods_submission_needs_no_screenshot_and_ignores_uploads(client, tmp_path):
+    app_module.UPLOAD_DIR = tmp_path
+    without = client.post("/api/submissions", data={"type": "goods", "itemId": "water", "quantity": "2"}, content_type="multipart/form-data", headers=csrf_headers(client))
+    assert without.status_code == 201
+    with_upload = client.post(
+        "/api/submissions",
+        data={"type": "goods", "itemId": "water", "quantity": "2", "screenshot": (BytesIO(PNG), "photo.png")},
+        content_type="multipart/form-data",
+        headers=csrf_headers(client),
+    )
+    assert with_upload.status_code == 201
+    assert all("screenshot" not in entry for entry in pending_submissions)
+    assert list(tmp_path.iterdir()) == []
