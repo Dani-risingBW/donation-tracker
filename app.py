@@ -1,3 +1,4 @@
+import logging
 import os
 import csv
 import io
@@ -10,6 +11,7 @@ from uuid import uuid4
 from flask import Flask, flash, jsonify, make_response, redirect, render_template, request, send_file, send_from_directory, session, url_for
 from werkzeug.utils import secure_filename
 
+import mailer
 from storage import load_state, save_state
 
 
@@ -101,6 +103,10 @@ def item_totals():
             item_id = donation["item_id"]
             totals[item_id] = totals.get(item_id, 0) + donation["quantity"]
     return totals
+
+
+def thank_donor(submission):
+    mailer.send_thank_you(submission, submission.get("email", ""), total_raised(), float(campaign["goal"]))
 
 
 def admin_required():
@@ -353,6 +359,8 @@ def api_admin_moderate(submission_id, action):
     moderation_log[submission_id] = action + "d"
     pending_submissions.remove(submission)
     persist_state()
+    if action == "approve":
+        thank_donor(submission)
     return jsonify(public_payload())
 
 
@@ -478,6 +486,7 @@ def approve_submission(submission_id):
     moderation_log[submission_id] = "approved"
     pending_submissions.remove(submission)
     persist_state()
+    thank_donor(submission)
     flash("Donation approved and added to public totals.", "success")
     return redirect(url_for("admin_dashboard"))
 
@@ -526,4 +535,5 @@ def health():
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     app.run(debug=True)

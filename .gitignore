@@ -6,6 +6,7 @@ venv/
 env/
 .env
 .env.*
+!.env.example
 instance/
 .pytest_cache/
 .coverage
