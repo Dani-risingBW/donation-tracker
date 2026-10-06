@@ -565,6 +565,8 @@ def admin_login():
 
 @app.route("/admin")
 def admin_dashboard():
+    if FRONTEND_DIST.exists():
+        return send_from_directory(FRONTEND_DIST, "index.html")
     if not admin_required():
         return redirect(url_for("admin_login"))
     return render_template("admin.html", campaign=campaign, pending_submissions=pending_submissions, verified_donations=verified_donations)
