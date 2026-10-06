@@ -41,6 +41,9 @@ h1, h2, h3 { font-family: Fraunces, serif; line-height: 1.1; } h1 { font-size: c
 .about-grid p:last-child, .about-details p:last-child, .about-bottom p:last-child { margin-bottom: 0; }
 .about-details, .about-bottom { display: grid; gap: 14px; grid-template-columns: repeat(3, 1fr); margin-top: 14px; }
 .about-bottom { grid-template-columns: 1.4fr 1fr; }
+.about-details > div:first-child ul { display: none; }
+.about-details > div:first-child::after { content: 'MLK Library/Chinatown\A Columbia Heights'; display: block; white-space: pre-line; }
+.about-bottom > div:last-child { display: none; }
 .about-section h3 { font-size: 1.15rem; margin-bottom: 10px; }
 .about-section ul { margin: 0; padding-left: 20px; }
 .about-section li { margin: 5px 0; }
