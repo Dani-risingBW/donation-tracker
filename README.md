@@ -8,6 +8,7 @@
 - Cash and goods donation submissions with server-side validation
 - Required private payment screenshots for cash donations, reviewed by admins
 - Admin login, approval/rejection queue, and campaign settings
+- Admin CRUD for verified manual donations and item progress values/targets
 - Verified-only public totals and item quantities
 - Health endpoint at `/health`
 - JSON API consumed by the React client
@@ -23,10 +24,12 @@ python -m venv .venv
 # macOS/Linux
 source .venv/bin/activate
 pip install -r requirements.txt
-python app.py
+python -m backend.app
 ```
 
 Open http://127.0.0.1:5000 in a browser.
+
+The Flask backend source lives in `backend/`; run it from the repository root so its package imports and project paths resolve correctly.
 
 The development admin password is `admin123`. Set `ADMIN_PASSWORD` and `SECRET_KEY` in the environment before deployment.
 State is stored in `instance/fundraiser.sqlite3` by default. Set `DATABASE_PATH` to use another SQLite file.
@@ -38,7 +41,7 @@ For a non-default frontend origin during development, set `FRONTEND_ORIGIN` to t
 Start Flask in one terminal:
 
 ```bash
-python app.py
+python -m backend.app
 ```
 
 Start the React client in another terminal:
@@ -67,6 +70,8 @@ Admin API calls use the Flask session created by `POST /api/admin/login`:
 | --- | --- | --- |
 | `POST` | `/api/admin/login` | Start an admin session |
 | `GET` | `/api/admin/review` | Read pending and verified donations |
+| `POST` | `/api/admin/donations` | Add a verified manual cash or goods donation |
+| `PUT` / `DELETE` | `/api/admin/donations/<id>` | Edit or remove a verified donation |
 | `GET` | `/api/admin/export.csv` | Download verified donations as CSV |
 | `POST` | `/api/admin/submissions/<id>/approve` | Approve a pending donation |
 | `POST` | `/api/admin/submissions/<id>/reject` | Reject a pending donation |
@@ -87,7 +92,7 @@ Production configuration uses `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_
 
 ## Volunteer signup and tax status
 
-Volunteer registration uses a Google Form configured with `VOLUNTEER_FORM_URL`. Add the full Google Forms share URL to `.env`; the public site and approved-donation emails link to it. Google may require volunteers to sign in, and volunteer responses are managed in Google Forms rather than stored by this app.
+Volunteer registration uses the configured Google Form at https://forms.gle/Ly2nCKeW1kdYKppU6. Set `VOLUNTEER_FORM_URL` in `.env` to replace it; the public site and approved-donation emails link to the configured URL. Google may require volunteers to sign in, and volunteer responses are managed in Google Forms rather than stored by this app.
 
 25:35 is not a registered nonprofit organization. Donations are not tax-deductible.
 
@@ -98,12 +103,16 @@ The app can optionally use Google Gemini to summarize redacted admin audit metad
 ## Project structure
 
 ```text
-app.py                     Flask application, JSON API, and campaign workflows
-storage.py                 SQLite state loading and persistence
+backend/app.py             Flask application, JSON API, and campaign workflows
+backend/storage.py         SQLite state loading and persistence
+backend/mailer.py          Donor thank-you email delivery
+backend/llm_audit.py       Optional redacted Gemini audit analysis
 frontend/                  Vite React client
+planning/                  Product, implementation, production, and visual reference documents
 templates/                 Legacy Flask fallback and admin pages
 frontend/src/main.jsx      React application and API client
 frontend/src/styles.css    React application styles
+planning/05-production-decisions.md Railway hosting and production architecture decisions
 tests/test_api.py          API authorization and moderation tests
 requirements.txt           Python dependencies
 ```
@@ -115,7 +124,7 @@ The local app currently persists campaign settings, donations, and screenshot me
 ## Validation
 
 ```bash
-python -m py_compile app.py storage.py
+python -m py_compile backend/app.py backend/storage.py backend/mailer.py backend/llm_audit.py
 pytest -q
 cd frontend
 npm run build

@@ -4,7 +4,7 @@ import sqlite3
 from pathlib import Path
 
 
-DEFAULT_DB_PATH = Path(__file__).parent / "instance" / "fundraiser.sqlite3"
+DEFAULT_DB_PATH = Path(__file__).parent.parent / "instance" / "fundraiser.sqlite3"
 
 
 def _connection():

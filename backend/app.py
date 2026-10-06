@@ -11,11 +11,12 @@ from uuid import uuid4
 from flask import Flask, flash, jsonify, make_response, redirect, render_template, request, send_file, send_from_directory, session, url_for
 from werkzeug.utils import secure_filename
 
-import mailer
-from storage import load_state, save_state
+from . import mailer
+from .storage import load_state, save_state
 
 
-app = Flask(__name__)
+PROJECT_ROOT = Path(__file__).parent.parent
+app = Flask(__name__, template_folder=str(PROJECT_ROOT / "templates"), static_folder=str(PROJECT_ROOT / "static"))
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-key")
 app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024
 app.config["SESSION_COOKIE_HTTPONLY"] = True
@@ -55,8 +56,8 @@ verified_donations = [
 pending_submissions = []
 moderation_log = {}
 submission_attempts = {}
-FRONTEND_DIST = Path(__file__).parent / "frontend" / "dist"
-UPLOAD_DIR = Path(os.environ.get("UPLOAD_DIR", Path(__file__).parent / "instance" / "uploads"))
+FRONTEND_DIST = PROJECT_ROOT / "frontend" / "dist"
+UPLOAD_DIR = Path(os.environ.get("UPLOAD_DIR", PROJECT_ROOT / "instance" / "uploads"))
 MAX_SCREENSHOT_BYTES = 1 * 1024 * 1024
 SCREENSHOT_TYPES = {
     "image/png": ("png", b"\x89PNG\r\n\x1a\n"),
@@ -203,7 +204,9 @@ def public_payload():
     goal = float(campaign["goal"])
     public_campaign = {
         **campaign,
-        "volunteer_form_url": os.environ.get("VOLUNTEER_FORM_URL", "").strip(),
+        "volunteer_form_url": os.environ.get(
+            "VOLUNTEER_FORM_URL", "https://forms.gle/Ly2nCKeW1kdYKppU6"
+        ).strip(),
     }
     return {
         "campaign": public_campaign,
@@ -317,6 +320,77 @@ def api_admin_review():
     return jsonify({"pending": [admin_submission_payload(entry) for entry in pending_submissions], "verified": verified_donations})
 
 
+def admin_donation_from_data(data, existing=None):
+    """Validate and normalize a manually managed verified donation."""
+    existing = existing or {}
+    donation_type = data.get("type", existing.get("type", "cash"))
+    name = str(data.get("name", existing.get("name", "Anonymous"))).strip()[:80] or "Anonymous"
+    donation = {
+        "id": existing.get("id", f"manual-{uuid4().hex}"),
+        "name": name,
+        "type": donation_type,
+        "date": str(data.get("date", existing.get("date", date.today().isoformat()))),
+    }
+    try:
+        date.fromisoformat(donation["date"])
+    except ValueError as error:
+        raise ValueError("Date must use YYYY-MM-DD format.") from error
+
+    if donation_type == "cash":
+        value = positive_float(data.get("value", data.get("amount", existing.get("value", 0))), 0)
+        if value <= 0:
+            raise ValueError("Cash value must be greater than zero.")
+        donation["value"] = value
+    elif donation_type == "goods":
+        item = get_item(data.get("itemId", data.get("item_id", existing.get("item_id"))))
+        quantity = positive_int(data.get("quantity", existing.get("quantity", 0)), 0)
+        if not item or quantity <= 0:
+            raise ValueError("Choose a valid item and quantity greater than zero.")
+        donation.update({
+            "item_id": item["id"],
+            "item_name": item["name"],
+            "quantity": quantity,
+            "value": item["value"] * quantity,
+        })
+    else:
+        raise ValueError("Donation type must be cash or goods.")
+    return donation
+
+
+@app.route("/api/admin/donations", methods=["POST"])
+def api_admin_create_donation():
+    if not admin_required():
+        return jsonify({"error": "unauthorized"}), 401
+    try:
+        donation = admin_donation_from_data(request.get_json(silent=True) or {})
+    except ValueError as error:
+        return jsonify({"error": str(error)}), 400
+    verified_donations.insert(0, donation)
+    persist_state()
+    return jsonify(public_payload()), 201
+
+
+@app.route("/api/admin/donations/<donation_id>", methods=["PUT", "DELETE"])
+def api_admin_manage_donation(donation_id):
+    if not admin_required():
+        return jsonify({"error": "unauthorized"}), 401
+    donation = next((entry for entry in verified_donations if entry["id"] == donation_id), None)
+    if not donation:
+        return jsonify({"error": "Donation not found."}), 404
+    if request.method == "DELETE":
+        verified_donations.remove(donation)
+        persist_state()
+        return jsonify(public_payload())
+    try:
+        updated = admin_donation_from_data(request.get_json(silent=True) or {}, donation)
+    except ValueError as error:
+        return jsonify({"error": str(error)}), 400
+    donation.clear()
+    donation.update(updated)
+    persist_state()
+    return jsonify(public_payload())
+
+
 @app.route("/api/admin/export.csv")
 def api_admin_export():
     if not admin_required():
@@ -385,6 +459,19 @@ def api_admin_settings():
     campaign["cashtag"] = str(data.get("cashtag") or campaign["cashtag"]).strip()
     campaign["end_date"] = str(data.get("endDate", campaign["end_date"]))
     campaign["distribution"] = str(data.get("distribution") or campaign["distribution"]).strip()
+    if "items" in data:
+        incoming_items = data["items"]
+        if not isinstance(incoming_items, list) or {item.get("id") for item in incoming_items} != {item["id"] for item in campaign["items"]}:
+            return jsonify({"error": "Items must include every existing item exactly once."}), 400
+        updated_items = []
+        for current in campaign["items"]:
+            incoming = next(item for item in incoming_items if item.get("id") == current["id"])
+            value = positive_float(incoming.get("value"), 0)
+            target = positive_int(incoming.get("target"), 0)
+            if value <= 0 or target <= 0:
+                return jsonify({"error": "Item values and targets must be greater than zero."}), 400
+            updated_items.append({**current, "value": value, "target": target})
+        campaign["items"] = updated_items
     persist_state()
     return jsonify({"campaign": campaign})
 
