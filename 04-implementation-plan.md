@@ -59,14 +59,15 @@ Confirmed on 2026-10-05:
 | Initial hosting tier | Neon and Supabase free tiers for low-traffic launch, with backups and paid resources required before scale |
 | Volunteer signup | Configurable Google Forms link; Google manages responses and may require sign-in |
 | Tax status | 25:35 is not a registered nonprofit organization; donations are not tax-deductible |
+| Application host | Railway, deployed from the reviewed and merged GitHub `main` branch |
 | Optional audit analysis | Google Gemini `gemini-3.5-flash-lite` may summarize redacted admin audit metadata; it never replaces the audit log |
 
 Still to confirm before launch:
 
 1. The dollar goal (currently the $1,000 placeholder), item values, item targets, distribution plan, and drop-off instructions.
-2. The Google Forms volunteer URL must be added to `VOLUNTEER_FORM_URL` before launch.
+2. The Google Forms volunteer URL is configured as `https://forms.gle/Ly2nCKeW1kdYKppU6`; it can be replaced through `VOLUNTEER_FORM_URL`.
 3. The authentication provider and admin accounts. Recommended default: email/password or an external identity provider with an allowlisted admin role; public donors should not need an account.
-4. The deployment target and environment-variable strategy. The app should support local Flask execution and a production WSGI server.
+4. Production WSGI configuration and Railway environment variables. The deployment target is Railway; see `05-production-decisions.md`.
 
 ## Configuration
 
@@ -77,7 +78,7 @@ Secrets live in a git-ignored `.env` file in the project root, loaded by `python
 | `MAIL_USERNAME` | Gmail account that sends thank-you emails | none (emails are skipped) |
 | `MAIL_PASSWORD` | Gmail app password for that account (requires 2-Step Verification) | none (emails are skipped) |
 | `MAIL_SENDER_NAME` | Display name on thank-you emails | `Spread 25:35` |
-| `VOLUNTEER_FORM_URL` | Google Forms link shown on the site and in thank-you emails | empty until the form is created |
+| `VOLUNTEER_FORM_URL` | Google Forms link shown on the site and in thank-you emails | 25:35 volunteer form |
 | `DATABASE_URL` | Neon PostgreSQL connection string in production | SQLite fallback locally |
 | `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `SUPABASE_BUCKET` | Private Supabase Storage configuration for screenshots | local file storage locally |
 | `GEMINI_API_KEY`, `GEMINI_MODEL` | Optional redacted audit analysis; model defaults to `gemini-3.5-flash-lite` | disabled, no API key |

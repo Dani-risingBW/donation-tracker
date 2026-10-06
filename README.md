@@ -87,7 +87,7 @@ Production configuration uses `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_
 
 ## Volunteer signup and tax status
 
-Volunteer registration uses a Google Form configured with `VOLUNTEER_FORM_URL`. Add the full Google Forms share URL to `.env`; the public site and approved-donation emails link to it. Google may require volunteers to sign in, and volunteer responses are managed in Google Forms rather than stored by this app.
+Volunteer registration uses the configured Google Form at https://forms.gle/Ly2nCKeW1kdYKppU6. Set `VOLUNTEER_FORM_URL` in `.env` to replace it; the public site and approved-donation emails link to the configured URL. Google may require volunteers to sign in, and volunteer responses are managed in Google Forms rather than stored by this app.
 
 25:35 is not a registered nonprofit organization. Donations are not tax-deductible.
 
@@ -104,6 +104,7 @@ frontend/                  Vite React client
 templates/                 Legacy Flask fallback and admin pages
 frontend/src/main.jsx      React application and API client
 frontend/src/styles.css    React application styles
+05-production-decisions.md Railway hosting and production architecture decisions
 tests/test_api.py          API authorization and moderation tests
 requirements.txt           Python dependencies
 ```

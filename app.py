@@ -203,7 +203,9 @@ def public_payload():
     goal = float(campaign["goal"])
     public_campaign = {
         **campaign,
-        "volunteer_form_url": os.environ.get("VOLUNTEER_FORM_URL", "").strip(),
+        "volunteer_form_url": os.environ.get(
+            "VOLUNTEER_FORM_URL", "https://forms.gle/Ly2nCKeW1kdYKppU6"
+        ).strip(),
     }
     return {
         "campaign": public_campaign,

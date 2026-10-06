@@ -1,4 +1,6 @@
-from app import app
+from io import BytesIO
+
+from app import app, pending_submissions
 
 
 def test_public_page_loads():
@@ -7,7 +9,10 @@ def test_public_page_loads():
     assert response.status_code == 200
     text = response.get_data(as_text=True)
     assert "25:35" in text
-    assert "Give now" in text or "Give with Cash App" in text
+    assert '<div id="root"></div>' in text
+    campaign = client.get("/api/campaign")
+    assert campaign.status_code == 200
+    assert campaign.get_json()["campaign"]["name"] == "25:35"
 
 
 def test_cash_submission_creates_pending_record():
@@ -19,14 +24,17 @@ def test_cash_submission_creates_pending_record():
             "amount": "35.00",
             "name": "Test Donor",
             "email": "test@example.com",
-            "photo": "",
+            "screenshot": (BytesIO(b"\x89PNG\r\n\x1a\n"), "payment.png"),
             "honeypot": "",
         },
         follow_redirects=True,
     )
     assert response.status_code == 200
-    text = response.get_data(as_text=True)
-    assert "pending review" in text.lower()
+    assert any(
+        submission["name"] == "Test Donor"
+        and submission["value"] == 35.0
+        for submission in pending_submissions
+    )
 
 
 def test_admin_requires_authentication():
