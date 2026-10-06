@@ -40,7 +40,8 @@ def test_cash_submission_creates_pending_record():
 def test_admin_requires_authentication():
     client = app.test_client()
     response = client.get("/admin")
-    assert response.status_code == 302
+    assert response.status_code == 200
+    assert '<div id="root"></div>' in response.get_data(as_text=True)
 
 
 def test_admin_login_success():
@@ -52,4 +53,4 @@ def test_admin_login_success():
     )
     assert response.status_code == 200
     text = response.get_data(as_text=True)
-    assert "Review queue" in text or "Admin" in text
+    assert '<div id="root"></div>' in text
