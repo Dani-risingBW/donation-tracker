@@ -1,6 +1,6 @@
 import pytest
 
-import mailer
+from backend import mailer
 
 
 @pytest.fixture(autouse=True)

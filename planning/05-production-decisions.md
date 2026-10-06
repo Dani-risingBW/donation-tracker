@@ -30,7 +30,7 @@ campaign data     private screenshots thank-you emails
 Railway is a good fit for this application because it reduces the infrastructure we need to manage while keeping deployment connected to the repository.
 
 - **GitHub-based deployments:** a merged pull request can trigger a repeatable deployment without manually copying files to a server.
-- **Simple Flask deployment:** Railway supports Flask services and can run the app with a production WSGI command such as `gunicorn app:app`.
+- **Simple Flask deployment:** Railway supports Flask services and can run the app with a production WSGI command such as `gunicorn backend.app:app`.
 - **One place for runtime configuration:** production values such as `DATABASE_URL`, `GEMINI_API_KEY`, `SECRET_KEY`, and mail credentials can be stored as Railway environment variables instead of committed to GitHub.
 - **Deployment history and rollback:** Railway keeps deployment history, making it easier to identify a bad release and return to a known working deployment.
 - **Runtime visibility:** logs, deployment status, service health, and resource usage are available from the Railway dashboard.

@@ -1,6 +1,6 @@
 from io import BytesIO
 
-from app import app, pending_submissions
+from backend.app import app, pending_submissions
 
 
 def test_public_page_loads():

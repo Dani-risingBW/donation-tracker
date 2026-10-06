@@ -24,10 +24,12 @@ python -m venv .venv
 # macOS/Linux
 source .venv/bin/activate
 pip install -r requirements.txt
-python app.py
+python -m backend.app
 ```
 
 Open http://127.0.0.1:5000 in a browser.
+
+The Flask backend source lives in `backend/`; run it from the repository root so its package imports and project paths resolve correctly.
 
 The development admin password is `admin123`. Set `ADMIN_PASSWORD` and `SECRET_KEY` in the environment before deployment.
 State is stored in `instance/fundraiser.sqlite3` by default. Set `DATABASE_PATH` to use another SQLite file.
@@ -39,7 +41,7 @@ For a non-default frontend origin during development, set `FRONTEND_ORIGIN` to t
 Start Flask in one terminal:
 
 ```bash
-python app.py
+python -m backend.app
 ```
 
 Start the React client in another terminal:
@@ -101,13 +103,16 @@ The app can optionally use Google Gemini to summarize redacted admin audit metad
 ## Project structure
 
 ```text
-app.py                     Flask application, JSON API, and campaign workflows
-storage.py                 SQLite state loading and persistence
+backend/app.py             Flask application, JSON API, and campaign workflows
+backend/storage.py         SQLite state loading and persistence
+backend/mailer.py          Donor thank-you email delivery
+backend/llm_audit.py       Optional redacted Gemini audit analysis
 frontend/                  Vite React client
+planning/                  Product, implementation, production, and visual reference documents
 templates/                 Legacy Flask fallback and admin pages
 frontend/src/main.jsx      React application and API client
 frontend/src/styles.css    React application styles
-05-production-decisions.md Railway hosting and production architecture decisions
+planning/05-production-decisions.md Railway hosting and production architecture decisions
 tests/test_api.py          API authorization and moderation tests
 requirements.txt           Python dependencies
 ```
@@ -119,7 +124,7 @@ The local app currently persists campaign settings, donations, and screenshot me
 ## Validation
 
 ```bash
-python -m py_compile app.py storage.py
+python -m py_compile backend/app.py backend/storage.py backend/mailer.py backend/llm_audit.py
 pytest -q
 cd frontend
 npm run build

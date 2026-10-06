@@ -3,8 +3,8 @@ from io import BytesIO
 
 import pytest
 
-import app as app_module
-from app import app, campaign, moderation_log, pending_submissions, persist_state, verified_donations
+import backend.app as app_module
+from backend.app import app, campaign, moderation_log, pending_submissions, persist_state, verified_donations
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"test image bytes"
 

@@ -2,7 +2,7 @@ from io import BytesIO
 
 import pytest
 
-import mailer
+from backend import mailer
 from test_api import PNG, client, csrf_headers
 
 

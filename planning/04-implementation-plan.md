@@ -68,7 +68,7 @@ Still to confirm before launch:
 1. The dollar goal (currently the $1,000 placeholder), item values, item targets, distribution plan, and drop-off instructions.
 2. The Google Forms volunteer URL is configured as `https://forms.gle/Ly2nCKeW1kdYKppU6`; it can be replaced through `VOLUNTEER_FORM_URL`.
 3. The authentication provider and admin accounts. Recommended default: email/password or an external identity provider with an allowlisted admin role; public donors should not need an account.
-4. Production WSGI configuration and Railway environment variables. The deployment target is Railway; see `05-production-decisions.md`.
+4. Production WSGI configuration and Railway environment variables. The deployment target is Railway; see `planning/05-production-decisions.md`.
 
 ## Configuration
 

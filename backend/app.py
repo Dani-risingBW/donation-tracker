@@ -11,11 +11,12 @@ from uuid import uuid4
 from flask import Flask, flash, jsonify, make_response, redirect, render_template, request, send_file, send_from_directory, session, url_for
 from werkzeug.utils import secure_filename
 
-import mailer
-from storage import load_state, save_state
+from . import mailer
+from .storage import load_state, save_state
 
 
-app = Flask(__name__)
+PROJECT_ROOT = Path(__file__).parent.parent
+app = Flask(__name__, template_folder=str(PROJECT_ROOT / "templates"), static_folder=str(PROJECT_ROOT / "static"))
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-key")
 app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024
 app.config["SESSION_COOKIE_HTTPONLY"] = True
@@ -55,8 +56,8 @@ verified_donations = [
 pending_submissions = []
 moderation_log = {}
 submission_attempts = {}
-FRONTEND_DIST = Path(__file__).parent / "frontend" / "dist"
-UPLOAD_DIR = Path(os.environ.get("UPLOAD_DIR", Path(__file__).parent / "instance" / "uploads"))
+FRONTEND_DIST = PROJECT_ROOT / "frontend" / "dist"
+UPLOAD_DIR = Path(os.environ.get("UPLOAD_DIR", PROJECT_ROOT / "instance" / "uploads"))
 MAX_SCREENSHOT_BYTES = 1 * 1024 * 1024
 SCREENSHOT_TYPES = {
     "image/png": ("png", b"\x89PNG\r\n\x1a\n"),

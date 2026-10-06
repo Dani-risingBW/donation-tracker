@@ -73,6 +73,6 @@ Donor pays via Cash App → opens "I Donated" → submits amount and screenshot 
 Navigation and button style modeled on campusoutreachdc.org/give (clean uppercase text buttons). The site blocked automated access, so the style was matched from description, not from the page itself.
 
 ## 9. Files
-- `01-refined-prompt.md`
-- `02-action-plan.md`
-- `03-planning-document.md`
+- `planning/01-refined-prompt.md`
+- `planning/02-action-plan.md`
+- `planning/03-planning-document.md`
