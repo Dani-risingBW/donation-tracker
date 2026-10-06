@@ -29,6 +29,9 @@ h1, h2, h3 { font-family: Fraunces, serif; line-height: 1.1; } h1 { font-size: c
 .confirmation { border-top: 4px solid var(--gold); } .confirmation:focus { outline: none; } .confirmation h3 { font-size: 1.1rem; margin-top: 22px; }
 .volunteer-section { align-items: center; display: flex; justify-content: space-between; }
 .about-section { overflow: hidden; }
+.about-section ~ .about-section { display: none; }
+.about-highlight { background: var(--navy); color: #fffdf9; margin: 14px 0; padding: 24px; }
+.about-highlight h3 { color: var(--gold); font-size: 1.8rem; margin: 0 0 8px; }
 .about-intro { max-width: 720px; }
 .about-intro h2 { max-width: 700px; }
 .about-image-slot { align-items: center; background: #eee5d7; border: 2px dashed #c9b99f; color: #7d6d57; display: flex; height: 280px; justify-content: center; margin: 28px 0; }
