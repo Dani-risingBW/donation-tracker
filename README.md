@@ -75,6 +75,16 @@ Admin API calls use the Flask session created by `POST /api/admin/login`:
 
 The React API client sends JSON and uses `credentials: include` so the admin session cookie is preserved.
 
+## Production architecture decision
+
+The production database will be **Neon PostgreSQL**, accessed through **SQLAlchemy**. SQLite remains the default for local development because it requires no separate service. PostgreSQL is preferred for production because it handles concurrent writes more reliably and provides a straightforward path to migrations and backups.
+
+Payment screenshots will move from local `instance/uploads/` storage to a **private Supabase Storage bucket** accessed through a storage adapter. Screenshot URLs must never be public; files remain available only to authenticated admins and are deleted after approval or rejection.
+
+The Neon and Supabase free tiers are appropriate for an initial low-traffic launch, but they are not a substitute for a production backup and retention plan. Before the fundraiser depends on the system for important records, enable backups and move to paid resources as needed. Free services may sleep, pause, or impose storage and compute limits.
+
+Production configuration uses `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, and `SUPABASE_BUCKET`. Never commit these values. See `.env.example` for the configuration template.
+
 ## Project structure
 
 ```text
@@ -90,7 +100,7 @@ requirements.txt           Python dependencies
 
 ## Current limitations
 
-The local app now persists campaign settings, donations, and screenshot metadata in SQLite. Every cash donation requires a payment screenshot; goods donations do not, since items are confirmed at drop-off. Screenshots are stored as generated files under `instance/uploads/`, limited to 1 MB, validated as PNG/JPEG/GIF/WebP, and deleted when approved or rejected. CSRF protection, submission throttling, secure session cookies, and baseline security headers are enabled. Before production launch, add a production authentication provider, external object storage, and a deployment backup/retention process.
+The local app currently persists campaign settings, donations, and screenshot metadata in SQLite and stores uploads under `instance/uploads/`. Every cash donation requires a payment screenshot; goods donations do not, since items are confirmed at drop-off. Screenshots are limited to 1 MB, validated as PNG/JPEG/GIF/WebP, and deleted when approved or rejected. CSRF protection, submission throttling, secure session cookies, and baseline security headers are enabled. The production migration to Neon PostgreSQL, SQLAlchemy, and private Supabase Storage remains an implementation step before launch.
 
 ## Validation
 

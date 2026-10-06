@@ -48,6 +48,9 @@ Donor pays via Cash App → opens "I Donated" → submits amount and screenshot 
 ## 6. Decisions and trade-offs
 - **Custom form instead of Google Form:** avoids forced Google sign-in. The Google Sheet/Drive (Apps Script) route is the recommendation if you self-host.
 - **Built-in database instead of Google Sheets:** published pages here cannot send data to Google, so the review queue lives in the page's own database.
+- **Production database:** use Neon PostgreSQL with SQLAlchemy. SQLite remains the local-development default, while PostgreSQL provides safer concurrent writes and a migration path for production.
+- **Production file storage:** use private Supabase Storage for payment screenshots, accessed through a storage adapter. Screenshots must remain admin-only and be deleted after moderation.
+- **Free-tier launch:** Neon and Supabase free tiers are acceptable for an initial low-traffic launch, but the fundraiser must move to paid resources or add backups before relying on it for important records.
 - **Known limitations:**
   - Donors need to be signed in to Claude with access to submit; others can view only.
   - Pending screenshots are technically readable by any invited submitter, though only admins see the review queue. Delete after review.
@@ -62,7 +65,7 @@ Donor pays via Cash App → opens "I Donated" → submits amount and screenshot 
 - [ ] Decide on tax-deductibility statement (501(c)(3) status)
 - [ ] Optional: thank-you emails, CAPTCHA, duplicate-screenshot detection, share buttons, volunteer sign-up
 - [ ] Test on phones; run a fake donation end to end; scan the QR code
-- [ ] Decide on self-hosting with Google Sheets/Drive if public donors need access without signing in
+- [x] Decide production database and file storage: Neon PostgreSQL + SQLAlchemy and private Supabase Storage
 
 ## 8. Design reference
 Navigation and button style modeled on campusoutreachdc.org/give (clean uppercase text buttons). The site blocked automated access, so the style was matched from description, not from the page itself.

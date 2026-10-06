@@ -54,14 +54,16 @@ Confirmed on 2026-10-05:
 | Screenshot requirement | Cash donations only; goods are confirmed at drop-off |
 | Thank-you emails | Sent on admin approval, only to donors who gave an email address |
 | Shipping frontend | React (`frontend/`); legacy Flask templates are fallback only |
+| Production database | Neon PostgreSQL accessed through SQLAlchemy; SQLite remains for local development |
+| Production screenshot storage | Private Supabase Storage behind a storage adapter; delete screenshots after moderation |
+| Initial hosting tier | Neon and Supabase free tiers for low-traffic launch, with backups and paid resources required before scale |
 
 Still to confirm before launch:
 
 1. The dollar goal (currently the $1,000 placeholder), item values, item targets, distribution plan, drop-off instructions, and tax-deductibility language.
 2. The volunteer form URL for thank-you emails (currently the `[Template]` placeholder).
-3. The production persistence and file-storage path. Recommended default: SQLite for local/development and PostgreSQL plus private object storage for production, accessed through SQLAlchemy and a storage adapter.
-4. The authentication provider and admin accounts. Recommended default: email/password or an external identity provider with an allowlisted admin role; public donors should not need an account.
-5. The deployment target and environment-variable strategy. The app should support local Flask execution and a production WSGI server.
+3. The authentication provider and admin accounts. Recommended default: email/password or an external identity provider with an allowlisted admin role; public donors should not need an account.
+4. The deployment target and environment-variable strategy. The app should support local Flask execution and a production WSGI server.
 
 ## Configuration
 
@@ -73,6 +75,8 @@ Secrets live in a git-ignored `.env` file in the project root, loaded by `python
 | `MAIL_PASSWORD` | Gmail app password for that account (requires 2-Step Verification) | none (emails are skipped) |
 | `MAIL_SENDER_NAME` | Display name on thank-you emails | `Spread 25:35` |
 | `VOLUNTEER_FORM_URL` | Link in the email's volunteer paragraph; empty removes the paragraph | `[Template]` |
+| `DATABASE_URL` | Neon PostgreSQL connection string in production | SQLite fallback locally |
+| `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `SUPABASE_BUCKET` | Private Supabase Storage configuration for screenshots | local file storage locally |
 | `ADMIN_PASSWORD`, `SECRET_KEY`, `DATABASE_PATH`, `FRONTEND_ORIGIN` | Existing settings; see README | development values |
 
 Never commit `.env`, the `instance/` directory, or any real password. Rotate the Gmail app password before launch.
