@@ -28,7 +28,8 @@ h1, h2, h3 { font-family: Fraunces, serif; line-height: 1.1; } h1 { font-size: c
 .cashtag { background: var(--navy); color: #fffdf9; display: inline-block; font-family: Fraunces, serif; font-size: 2rem; margin: 15px 0; padding: 12px 18px; }
 .confirmation { border-top: 4px solid var(--gold); } .confirmation:focus { outline: none; } .confirmation h3 { font-size: 1.1rem; margin-top: 22px; }
 .volunteer-section { align-items: center; display: flex; justify-content: space-between; }
-.about-section { overflow: hidden; }
+.about-section { display: none; overflow: hidden; }
+.about-page .about-section { display: block; }
 .about-section ~ .about-section { display: none; }
 .about-highlight { background: var(--navy); color: #fffdf9; margin: 14px 0; padding: 24px; }
 .about-highlight h3 { color: var(--gold); font-size: 1.8rem; margin: 0 0 8px; }

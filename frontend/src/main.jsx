@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import './styles.css'
+import AboutPage from './pages/AboutPage'
 
 const money = value => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value || 0)
 const wholeMoney = value => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value || 0)
@@ -59,6 +60,7 @@ function App() {
   const [confirmation, setConfirmation] = useState(null)
   const [manualForm, setManualForm] = useState({ type: 'cash', name: '', value: '', itemId: 'water', quantity: 1 })
   const confirmationRef = useRef(null)
+  const isAboutPage = window.location.pathname === '/about'
 
   const load = () => api('/api/campaign').then(setData).catch(err => setError(err.message))
   useEffect(() => { load() }, [])
@@ -149,6 +151,7 @@ function App() {
     catch (err) { setError(err.message) }
   }
 
+  if (isAboutPage) return <AboutPage />
   if (!data) return <main className="loading">Loading 25:35...</main>
   const { campaign, donations, totalRaised, progress, remaining, donorCount, itemTotals, campaignStatus } = data
   const campaignClosed = campaignStatus !== 'active'
@@ -157,7 +160,7 @@ function App() {
   const campaignMessage = campaignStatus === 'ended' ? 'This fundraiser has ended.' : 'The campaign goal has been reached. Thank you for helping us serve our neighbors.'
 
   return <>
-     <header className="topbar"><a className="brand" href="#top">25:35</a><nav><a href="#about">About us</a><a href="#progress">Progress</a><a href="#items">Item drive</a><a href="#donate">Donate</a></nav></header>
+     <header className="topbar"><a className="brand" href="#top">25:35</a><nav><a href="/about">About us</a><a href="#progress">Progress</a><a href="#items">Item drive</a><a href="#donate">Donate</a></nav></header>
     <main id="top">
       {notice && <p className="notice success">{notice}</p>}{error && <p className="notice error">{error}</p>}
        <section className="hero section"><div><p className="eyebrow">A DC outreach fundraiser</p><h1>25:35</h1><p className="scripture">“{campaign.mission}”</p><p className="muted">{campaign.scripture}</p></div><div className="mission">{campaignClosed && <p className="campaign-status">{campaignMessage}</p>}<p className="eyebrow">Our mission</p><p>{campaign.description}</p>{!campaignClosed && <a className="button" href="#donate">Give now</a>}</div></section>

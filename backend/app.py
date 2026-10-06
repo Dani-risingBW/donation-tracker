@@ -490,6 +490,13 @@ def dashboard():
     )
 
 
+@app.route("/about")
+def about_page():
+    if FRONTEND_DIST.exists():
+        return send_from_directory(FRONTEND_DIST, "index.html")
+    return redirect(url_for("dashboard"))
+
+
 @app.route("/assets/<path:filename>")
 def frontend_asset(filename):
     if FRONTEND_DIST.exists():
