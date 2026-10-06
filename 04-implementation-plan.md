@@ -19,6 +19,7 @@ Completed:
 - Verified-only aggregation, goods valuation on the server, required screenshot uploads for cash donations, private file storage, and cleanup after moderation.
 - SQLite persistence, secure session-cookie defaults, CSRF tokens, submission throttling, security headers, and retry-safe moderation.
 - API tests covering authorization, CSRF, rate limiting, screenshots, settings, end states, CSV export, and idempotent approval.
+- Protected admin CRUD for manually verified donations and item progress values and targets, with API coverage.
 - Sticky header navigation; mobile layout with no horizontal overflow.
 - Real Cash App details: `$Spread2535`, with Copy cashtag and Open in Cash App buttons.
 - Automated thank-you email to donors when an admin approves their donation.
@@ -36,7 +37,7 @@ Remaining:
 - Replace the development password with a production identity provider or managed admin accounts.
 - Add production object storage, upload retention policy, backups, and deployment configuration.
 - Add login throttling, stronger duplicate/replay detection, structured production logging, and a full browser smoke test.
-- Add the Google Forms volunteer link to `VOLUNTEER_FORM_URL` before launch; the public site and thank-you emails use this value.
+- The Google Forms volunteer link is configured in `VOLUNTEER_FORM_URL` and can be replaced before launch.
 - Make the outreach dates editable in admin settings (they are currently code defaults).
 - Remaining UI backlog (React only): show form errors next to the form, a friendlier screenshot upload with preview and size check, a Contact section, active-section highlighting in the header, and admin review polish (screenshot thumbnails, pending count, confirm before Reject).
 - Confirm the remaining campaign decisions below.

@@ -8,6 +8,7 @@
 - Cash and goods donation submissions with server-side validation
 - Required private payment screenshots for cash donations, reviewed by admins
 - Admin login, approval/rejection queue, and campaign settings
+- Admin CRUD for verified manual donations and item progress values/targets
 - Verified-only public totals and item quantities
 - Health endpoint at `/health`
 - JSON API consumed by the React client
@@ -67,6 +68,8 @@ Admin API calls use the Flask session created by `POST /api/admin/login`:
 | --- | --- | --- |
 | `POST` | `/api/admin/login` | Start an admin session |
 | `GET` | `/api/admin/review` | Read pending and verified donations |
+| `POST` | `/api/admin/donations` | Add a verified manual cash or goods donation |
+| `PUT` / `DELETE` | `/api/admin/donations/<id>` | Edit or remove a verified donation |
 | `GET` | `/api/admin/export.csv` | Download verified donations as CSV |
 | `POST` | `/api/admin/submissions/<id>/approve` | Approve a pending donation |
 | `POST` | `/api/admin/submissions/<id>/reject` | Reject a pending donation |

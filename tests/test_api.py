@@ -112,6 +112,42 @@ def test_admin_can_update_campaign_settings(client):
     assert response.get_json()["campaign"]["cashtag"] == "$UpdatedTag"
 
 
+def test_admin_can_create_update_and_delete_manual_donation(client):
+    headers = csrf_headers(client)
+    assert client.post("/api/admin/login", json={"password": "admin123"}, headers=headers).status_code == 200
+    created = client.post(
+        "/api/admin/donations",
+        json={"type": "cash", "name": "Manual Donor", "value": 40},
+        headers=headers,
+    )
+    assert created.status_code == 201
+    donation_id = next(entry["id"] for entry in verified_donations if entry["name"] == "Manual Donor")
+
+    updated = client.put(
+        f"/api/admin/donations/{donation_id}",
+        json={"type": "cash", "name": "Updated Donor", "value": 55},
+        headers=headers,
+    )
+    assert updated.status_code == 200
+    assert any(entry["id"] == donation_id and entry["value"] == 55 for entry in verified_donations)
+
+    deleted = client.delete(f"/api/admin/donations/{donation_id}", headers=headers)
+    assert deleted.status_code == 200
+    assert all(entry["id"] != donation_id for entry in verified_donations)
+
+
+def test_admin_can_update_item_progress_settings(client):
+    headers = csrf_headers(client)
+    assert client.post("/api/admin/login", json={"password": "admin123"}, headers=headers).status_code == 200
+    items = client.get("/api/admin/settings").get_json()["campaign"]["items"]
+    items[0]["value"] = 12
+    items[0]["target"] = 75
+    response = client.put("/api/admin/settings", json={"items": items}, headers=headers)
+    assert response.status_code == 200
+    assert response.get_json()["campaign"]["items"][0]["value"] == 12
+    assert response.get_json()["campaign"]["items"][0]["target"] == 75
+
+
 def test_screenshot_is_private_and_cleaned_after_approval(client, tmp_path):
     app_module.UPLOAD_DIR = tmp_path
     image = b"\x89PNG\r\n\x1a\n" + b"test image bytes"
