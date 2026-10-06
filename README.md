@@ -85,6 +85,16 @@ The Neon and Supabase free tiers are appropriate for an initial low-traffic laun
 
 Production configuration uses `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, and `SUPABASE_BUCKET`. Never commit these values. See `.env.example` for the configuration template.
 
+## Volunteer signup and tax status
+
+Volunteer registration uses a Google Form configured with `VOLUNTEER_FORM_URL`. Add the full Google Forms share URL to `.env`; the public site and approved-donation emails link to it. Google may require volunteers to sign in, and volunteer responses are managed in Google Forms rather than stored by this app.
+
+25:35 is not a registered nonprofit organization. Donations are not tax-deductible.
+
+## Optional audit analysis
+
+The app can optionally use Google Gemini to summarize redacted admin audit metadata. Set `GEMINI_API_KEY` to enable it; the configured model is `gemini-3.5-flash-lite`. The LLM is not the audit log and does not approve or reject donations. Never send donor names, email addresses, payment details, screenshots, request payloads, or secrets to the model.
+
 ## Project structure
 
 ```text

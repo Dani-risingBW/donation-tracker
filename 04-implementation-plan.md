@@ -36,7 +36,7 @@ Remaining:
 - Replace the development password with a production identity provider or managed admin accounts.
 - Add production object storage, upload retention policy, backups, and deployment configuration.
 - Add login throttling, stronger duplicate/replay detection, structured production logging, and a full browser smoke test.
-- Build the volunteer sign-up section and form, then set `VOLUNTEER_FORM_URL` so thank-you emails link to it.
+- Add the Google Forms volunteer link to `VOLUNTEER_FORM_URL` before launch; the public site and thank-you emails use this value.
 - Make the outreach dates editable in admin settings (they are currently code defaults).
 - Remaining UI backlog (React only): show form errors next to the form, a friendlier screenshot upload with preview and size check, a Contact section, active-section highlighting in the header, and admin review polish (screenshot thumbnails, pending count, confirm before Reject).
 - Confirm the remaining campaign decisions below.
@@ -57,11 +57,14 @@ Confirmed on 2026-10-05:
 | Production database | Neon PostgreSQL accessed through SQLAlchemy; SQLite remains for local development |
 | Production screenshot storage | Private Supabase Storage behind a storage adapter; delete screenshots after moderation |
 | Initial hosting tier | Neon and Supabase free tiers for low-traffic launch, with backups and paid resources required before scale |
+| Volunteer signup | Configurable Google Forms link; Google manages responses and may require sign-in |
+| Tax status | 25:35 is not a registered nonprofit organization; donations are not tax-deductible |
+| Optional audit analysis | Google Gemini `gemini-3.5-flash-lite` may summarize redacted admin audit metadata; it never replaces the audit log |
 
 Still to confirm before launch:
 
-1. The dollar goal (currently the $1,000 placeholder), item values, item targets, distribution plan, drop-off instructions, and tax-deductibility language.
-2. The volunteer form URL for thank-you emails (currently the `[Template]` placeholder).
+1. The dollar goal (currently the $1,000 placeholder), item values, item targets, distribution plan, and drop-off instructions.
+2. The Google Forms volunteer URL must be added to `VOLUNTEER_FORM_URL` before launch.
 3. The authentication provider and admin accounts. Recommended default: email/password or an external identity provider with an allowlisted admin role; public donors should not need an account.
 4. The deployment target and environment-variable strategy. The app should support local Flask execution and a production WSGI server.
 
@@ -74,9 +77,10 @@ Secrets live in a git-ignored `.env` file in the project root, loaded by `python
 | `MAIL_USERNAME` | Gmail account that sends thank-you emails | none (emails are skipped) |
 | `MAIL_PASSWORD` | Gmail app password for that account (requires 2-Step Verification) | none (emails are skipped) |
 | `MAIL_SENDER_NAME` | Display name on thank-you emails | `Spread 25:35` |
-| `VOLUNTEER_FORM_URL` | Link in the email's volunteer paragraph; empty removes the paragraph | `[Template]` |
+| `VOLUNTEER_FORM_URL` | Google Forms link shown on the site and in thank-you emails | empty until the form is created |
 | `DATABASE_URL` | Neon PostgreSQL connection string in production | SQLite fallback locally |
 | `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `SUPABASE_BUCKET` | Private Supabase Storage configuration for screenshots | local file storage locally |
+| `GEMINI_API_KEY`, `GEMINI_MODEL` | Optional redacted audit analysis; model defaults to `gemini-3.5-flash-lite` | disabled, no API key |
 | `ADMIN_PASSWORD`, `SECRET_KEY`, `DATABASE_PATH`, `FRONTEND_ORIGIN` | Existing settings; see README | development values |
 
 Never commit `.env`, the `instance/` directory, or any real password. Rotate the Gmail app password before launch.

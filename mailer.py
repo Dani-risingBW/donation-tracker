@@ -19,7 +19,7 @@ def mail_settings():
         "username": os.environ.get("MAIL_USERNAME", ""),
         "password": os.environ.get("MAIL_PASSWORD", ""),
         "sender_name": os.environ.get("MAIL_SENDER_NAME", "Spread 25:35"),
-        "volunteer_url": os.environ.get("VOLUNTEER_FORM_URL", "[Template]"),
+        "volunteer_url": os.environ.get("VOLUNTEER_FORM_URL", "").strip(),
     }
 
 

@@ -51,6 +51,8 @@ Donor pays via Cash App → opens "I Donated" → submits amount and screenshot 
 - **Production database:** use Neon PostgreSQL with SQLAlchemy. SQLite remains the local-development default, while PostgreSQL provides safer concurrent writes and a migration path for production.
 - **Production file storage:** use private Supabase Storage for payment screenshots, accessed through a storage adapter. Screenshots must remain admin-only and be deleted after moderation.
 - **Free-tier launch:** Neon and Supabase free tiers are acceptable for an initial low-traffic launch, but the fundraiser must move to paid resources or add backups before relying on it for important records.
+- **Volunteer signup:** use a configurable Google Forms URL. Google manages responses and may require respondents to sign in; no volunteer data is stored in this app.
+- **Tax status:** 25:35 is not a registered nonprofit organization, so donations are not tax-deductible.
 - **Known limitations:**
   - Donors need to be signed in to Claude with access to submit; others can view only.
   - Pending screenshots are technically readable by any invited submitter, though only admins see the review queue. Delete after review.
@@ -62,8 +64,8 @@ Donor pays via Cash App → opens "I Donated" → submits amount and screenshot 
 - [ ] Confirm item values and targets
 - [ ] Replace "Where the items go" placeholder text with the real distribution plan
 - [ ] Add drop-off location and instructions
-- [ ] Decide on tax-deductibility statement (501(c)(3) status)
-- [ ] Optional: thank-you emails, CAPTCHA, duplicate-screenshot detection, share buttons, volunteer sign-up
+- [x] Decide on tax-deductibility statement: donations are not tax-deductible because 25:35 is not a registered nonprofit organization
+- [x] Volunteer signup approach: configurable Google Forms link
 - [ ] Test on phones; run a fake donation end to end; scan the QR code
 - [x] Decide production database and file storage: Neon PostgreSQL + SQLAlchemy and private Supabase Storage
 

@@ -201,8 +201,12 @@ def admin_submission_payload(submission):
 def public_payload():
     raised = total_raised()
     goal = float(campaign["goal"])
+    public_campaign = {
+        **campaign,
+        "volunteer_form_url": os.environ.get("VOLUNTEER_FORM_URL", "").strip(),
+    }
     return {
-        "campaign": campaign,
+        "campaign": public_campaign,
         "donations": verified_donations,
         "totalRaised": raised,
         "progress": min((raised / goal) * 100, 100) if goal else 0,
