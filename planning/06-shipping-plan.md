@@ -78,10 +78,12 @@ All items are in scope, including the ones marked Recommended.
 1. Done: `tests/conftest.py` points `DATABASE_PATH` at a temporary directory before `backend.app` is imported.
 2. Done: tests cover unique submission IDs, the login attempt limit, per-visitor rate limits, email privacy, and startup failure when secrets are missing.
 3. Done: deleted the old local `instance/` test database and uploads.
-4. Upgrade the local environment to Python 3.12 (the current `.venv` is 3.9.6, and the README requires 3.10+). Add `.python-version` containing `3.12`.
+4. Upgrade the local environment to Python 3.12 (the current `.venv` is 3.9.6, and the README requires 3.10+). `.python-version` (3.12) is added, and the Docker image uses Python 3.12.
 5. Confirm that `pytest -q` and `npm run build` both pass, then merge to `main` through a PR.
 
 ## Phase 3: Railway setup
+
+**Status (2026-10-07):** the `Dockerfile`, `.dockerignore`, and `railway.json` are in the repo. `railway.json` sets the Dockerfile build, one replica, the `/health` health check, and restart on failure, so steps 2 and 5 need no dashboard changes. The remaining steps are done in the Railway dashboard.
 
 1. Create a Railway project on the Hobby plan and connect the GitHub repo to deploy from `main`.
 2. Add a `Dockerfile` so the build runs both Node and Python:
