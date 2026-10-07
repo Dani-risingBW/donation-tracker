@@ -20,7 +20,7 @@ def mail_settings():
         "password": os.environ.get("MAIL_PASSWORD", ""),
         "sender_name": os.environ.get("MAIL_SENDER_NAME", "Spread 25:35"),
         "volunteer_url": os.environ.get(
-            "VOLUNTEER_FORM_URL", "https://forms.gle/Ly2nCKeW1kdYKppU6"
+            "VOLUNTEER_FORM_URL", "https://docs.google.com/forms/d/e/1FAIpQLSfingNyaQYAfLHCKJTrau8OozUlUEV-haxXMNalJy93zLrbeA/viewform"
         ).strip(),
     }
 

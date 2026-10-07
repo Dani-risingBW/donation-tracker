@@ -60,7 +60,7 @@ GEMINI_MODEL=gemini-3.5-flash-lite
 MAIL_USERNAME=<optional Gmail sender>
 MAIL_PASSWORD=<Gmail app password>
 MAIL_SENDER_NAME=Spread 25:35
-VOLUNTEER_FORM_URL=https://forms.gle/Ly2nCKeW1kdYKppU6
+VOLUNTEER_FORM_URL=https://docs.google.com/forms/d/e/1FAIpQLSfingNyaQYAfLHCKJTrau8OozUlUEV-haxXMNalJy93zLrbeA/viewform
 COOKIE_SECURE=1
 ```
 

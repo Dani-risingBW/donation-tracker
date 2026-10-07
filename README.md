@@ -92,7 +92,7 @@ Production configuration uses `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_
 
 ## Volunteer signup and tax status
 
-Volunteer registration uses the configured Google Form at https://forms.gle/Ly2nCKeW1kdYKppU6. Set `VOLUNTEER_FORM_URL` in `.env` to replace it; the public site and approved-donation emails link to the configured URL. Google may require volunteers to sign in, and volunteer responses are managed in Google Forms rather than stored by this app.
+Volunteer registration uses the configured Google Form at https://docs.google.com/forms/d/e/1FAIpQLSfingNyaQYAfLHCKJTrau8OozUlUEV-haxXMNalJy93zLrbeA/viewform. Set `VOLUNTEER_FORM_URL` in `.env` to replace it; the public site and approved-donation emails link to the configured URL. Google may require volunteers to sign in, and volunteer responses are managed in Google Forms rather than stored by this app.
 
 25:35 is not a registered nonprofit organization. Donations are not tax-deductible.
 
