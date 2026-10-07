@@ -1,9 +1,7 @@
-from io import BytesIO
-
 import pytest
 
 from backend import mailer
-from test_api import PNG, client, csrf_headers
+from conftest import csrf_headers, login, submit_goods
 
 
 @pytest.fixture
@@ -22,12 +20,10 @@ def sent(monkeypatch):
 
 
 def submit_and_approve(client, email, **fields):
-    data = {"type": "cash", "amount": "10", "name": "Test Donor", "email": email, "screenshot": (BytesIO(PNG), "receipt.png"), **fields}
-    client.post("/api/submissions", data=data, content_type="multipart/form-data", headers=csrf_headers(client))
-    headers = csrf_headers(client)
-    client.post("/api/admin/login", json={"password": "admin123"}, headers=headers)
+    submit_goods(client, name="Test Donor", email=email, quantity=10, **fields)
+    login(client)
     submission_id = client.get("/api/admin/review").get_json()["pending"][0]["id"]
-    return client.post(f"/api/admin/submissions/{submission_id}/approve", headers=headers)
+    return client.post(f"/api/admin/submissions/{submission_id}/approve", headers=csrf_headers(client))
 
 
 def test_cash_email_names_donor_gift_progress_and_volunteer_link(mail_env):
@@ -92,14 +88,9 @@ def test_only_approvals_with_an_email_reach_gmail(client, mail_env, monkeypatch)
     monkeypatch.setattr(mailer.threading, "Thread", InlineThread)
     submit_and_approve(client, "")
     assert delivered == []
-    client.post("/api/submissions", data={"type": "cash", "amount": "5", "email": "donor@example.com", "screenshot": (BytesIO(PNG), "r.png")}, content_type="multipart/form-data", headers=csrf_headers(client))
+    submit_goods(client, email="donor@example.com")
     submission_id = client.get("/api/admin/review").get_json()["pending"][0]["id"]
     client.post(f"/api/admin/submissions/{submission_id}/reject", headers=csrf_headers(client))
     assert delivered == []
     submit_and_approve(client, "donor@example.com")
     assert [message["To"] for message in delivered] == ["donor@example.com"]
-
-
-def test_approved_record_does_not_store_donor_email(client, sent):
-    submit_and_approve(client, "donor@example.com")
-    assert "email" not in client.get("/api/admin/review").get_json()["verified"][0]

@@ -1,5 +1,7 @@
 # 25:35 Production Decisions
 
+> **Superseded in part (2026-10-07).** `06-shipping-plan.md` replaces the Neon PostgreSQL and Supabase Storage choices below. Production uses SQLite on a Railway volume, and the site no longer accepts payment screenshots: cash goes through GoFundMe or Cash App and admins enter it by hand. The Railway hosting decision still stands.
+
 ## Hosting decision
 
 25:35 will be hosted on **Railway**. Railway will run the Flask application and serve the built React frontend. The application will deploy from the GitHub `main` branch after changes are reviewed and merged through pull requests.

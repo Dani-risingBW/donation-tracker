@@ -3,22 +3,25 @@ import os
 import csv
 import io
 import secrets
+import threading
 import time
 from pathlib import Path
 from datetime import date, datetime
 from uuid import uuid4
 
-from flask import Flask, flash, jsonify, make_response, redirect, render_template, request, send_file, send_from_directory, session, url_for
-from werkzeug.utils import secure_filename
+from flask import Flask, jsonify, make_response, request, send_from_directory, session
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from . import mailer
 from .storage import load_state, save_state
 
 
 PROJECT_ROOT = Path(__file__).parent.parent
-app = Flask(__name__, template_folder=str(PROJECT_ROOT / "templates"), static_folder=str(PROJECT_ROOT / "static"))
+app = Flask(__name__, static_folder=None)
+# Railway's proxy adds one X-Forwarded-For hop; trust it so rate limits see each visitor's own IP.
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-key")
-app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024
+app.config["MAX_CONTENT_LENGTH"] = 64 * 1024
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_SECURE"] = os.environ.get("COOKIE_SECURE", "0") == "1"
@@ -39,7 +42,8 @@ campaign = {
     "description": "Serving our unhoused neighbors in Washington, D.C. through practical care, prayer, and joyful outreach.",
     "mission": "For I was hungry and you gave me something to eat, I was thirsty and you gave me something to drink, I was a stranger and you invited me in.",
     "scripture": "Matthew 25:35",
-    "goal": 1000.0,
+    "goal": 2000.0,
+    "gofundme_url": "https://gofund.me/901ac545b",
     "cashtag": "$Spread2535",
     "end_date": "2026-11-12",
     "event_start": "2026-11-13",
@@ -49,22 +53,13 @@ campaign = {
     "contact_email": "spreadmatthew2535@gmail.com",
 }
 
-verified_donations = [
-    {"id": "seed-1", "name": "Amina O.", "type": "cash", "value": 75.0, "date": "2026-09-28"},
-    {"id": "seed-2", "name": "Jordan L.", "type": "goods", "item_id": "water", "item_name": "Bottled Water", "quantity": 10, "value": 10.0, "date": "2026-09-26"},
-]
+verified_donations = []
 pending_submissions = []
 moderation_log = {}
-submission_attempts = {}
+rate_limit_attempts = {}
+# Gunicorn runs one worker with several threads; every change to shared state holds this lock.
+state_lock = threading.RLock()
 FRONTEND_DIST = PROJECT_ROOT / "frontend" / "dist"
-UPLOAD_DIR = Path(os.environ.get("UPLOAD_DIR", PROJECT_ROOT / "instance" / "uploads"))
-MAX_SCREENSHOT_BYTES = 1 * 1024 * 1024
-SCREENSHOT_TYPES = {
-    "image/png": ("png", b"\x89PNG\r\n\x1a\n"),
-    "image/jpeg": ("jpg", b"\xff\xd8\xff"),
-    "image/gif": ("gif", b"GIF8"),
-    "image/webp": ("webp", b"RIFF"),
-}
 
 state = load_state({
     "campaign": campaign,
@@ -88,10 +83,6 @@ def persist_state():
         "pending_submissions": pending_submissions,
         "moderation_log": moderation_log,
     })
-
-
-def money(value):
-    return f"${float(value):,.2f}"
 
 
 def get_item(item_id):
@@ -119,17 +110,28 @@ def admin_required():
     return bool(session.get("admin_logged_in"))
 
 
-def allow_submission(client_id):
+def allow_attempt(bucket, maximum, window):
+    key = (bucket, request.remote_addr or "unknown")
     now = time.monotonic()
-    window = float(os.environ.get("SUBMISSION_RATE_WINDOW", "60"))
-    maximum = int(os.environ.get("SUBMISSION_RATE_LIMIT", "10"))
-    attempts = [attempt for attempt in submission_attempts.get(client_id, []) if now - attempt < window]
-    if len(attempts) >= maximum:
-        submission_attempts[client_id] = attempts
-        return False
-    attempts.append(now)
-    submission_attempts[client_id] = attempts
-    return True
+    with state_lock:
+        attempts = [attempt for attempt in rate_limit_attempts.get(key, []) if now - attempt < window]
+        allowed = len(attempts) < maximum
+        if allowed:
+            attempts.append(now)
+        rate_limit_attempts[key] = attempts
+        return allowed
+
+
+def allow_submission():
+    return allow_attempt(
+        "submission",
+        int(os.environ.get("SUBMISSION_RATE_LIMIT", "10")),
+        float(os.environ.get("SUBMISSION_RATE_WINDOW", "60")),
+    )
+
+
+def allow_login():
+    return allow_attempt("login", int(os.environ.get("LOGIN_RATE_LIMIT", "5")), 60.0)
 
 
 def positive_float(value, fallback):
@@ -160,43 +162,16 @@ def campaign_status():
     return "active"
 
 
-def save_screenshot(upload):
-    if not upload or not upload.filename:
-        return None
-    raw = upload.read(MAX_SCREENSHOT_BYTES + 1)
-    if len(raw) > MAX_SCREENSHOT_BYTES:
-        raise ValueError("Screenshot must be 1 MB or smaller.")
-    mime = upload.mimetype
-    type_info = SCREENSHOT_TYPES.get(mime)
-    if not type_info:
-        raise ValueError("Screenshot must be a PNG, JPEG, GIF, or WebP image.")
-    extension, signature = type_info
-    if not raw.startswith(signature) or (mime == "image/webp" and raw[8:12] != b"WEBP"):
-        raise ValueError("Screenshot content does not match its image type.")
-    storage_name = f"{uuid4().hex}.{extension}"
-    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-    (UPLOAD_DIR / storage_name).write_bytes(raw)
-    original_name = secure_filename(upload.filename) or f"screenshot.{extension}"
-    return {"storageName": storage_name, "originalName": original_name[:120], "mime": mime, "size": len(raw)}
+def clean_email(value):
+    email = str(value or "").strip()[:160]
+    if email and "@" not in email:
+        raise ValueError("Enter a valid email address or leave it blank.")
+    return email
 
 
-def delete_screenshot(submission):
-    screenshot = submission.get("screenshot") if submission else None
-    if screenshot and screenshot.get("storageName"):
-        (UPLOAD_DIR / screenshot["storageName"]).unlink(missing_ok=True)
-
-
-def admin_submission_payload(submission):
-    payload = {key: value for key, value in submission.items() if key != "email"}
-    if submission.get("email"):
-        payload["email"] = submission["email"]
-    if submission.get("screenshot"):
-        payload["screenshot"] = {
-            key: submission["screenshot"][key]
-            for key in ("originalName", "mime", "size")
-        }
-        payload["screenshot"]["url"] = url_for("api_admin_screenshot", submission_id=submission["id"])
-    return payload
+def public_donation(donation):
+    # Donor emails are kept for future event announcements and never shown publicly.
+    return {key: value for key, value in donation.items() if key != "email"}
 
 
 def public_payload():
@@ -210,7 +185,7 @@ def public_payload():
     }
     return {
         "campaign": public_campaign,
-        "donations": verified_donations,
+        "donations": [public_donation(donation) for donation in verified_donations],
         "totalRaised": raised,
         "progress": min((raised / goal) * 100, 100) if goal else 0,
         "remaining": max(goal - raised, 0),
@@ -230,13 +205,8 @@ def add_api_headers(response):
         response.headers["Access-Control-Allow-Origin"] = os.environ.get("FRONTEND_ORIGIN", "http://localhost:5173")
         response.headers["Access-Control-Allow-Credentials"] = "true"
         response.headers["Access-Control-Allow-Headers"] = "Content-Type"
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, OPTIONS"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
     return response
-
-
-@app.template_filter("currency")
-def currency(value):
-    return money(value)
 
 
 @app.before_request
@@ -256,49 +226,41 @@ def api_csrf():
 
 @app.route("/api/campaign", methods=["GET"])
 def api_campaign():
-    return jsonify(public_payload())
+    with state_lock:
+        return jsonify(public_payload())
 
 
 @app.route("/api/submissions", methods=["POST", "OPTIONS"])
 def api_submit_donation():
+    """Record a pledged goods donation; cash gifts go through GoFundMe or Cash App and are entered by admins."""
     if request.method == "OPTIONS":
         return ("", 204)
-    if not allow_submission(request.remote_addr or "unknown"):
+    if not allow_submission():
         return jsonify({"error": "Too many submissions. Please try again later."}), 429
-    if campaign_status() != "active":
-        return jsonify({"error": "This fundraiser is no longer accepting submissions."}), 409
-    data = request.get_json(silent=True) if request.is_json else request.form
-    data = data or {}
+    data = request.get_json(silent=True) or {}
     if data.get("honeypot"):
         return jsonify({"error": "Submission rejected."}), 400
-    name = str(data.get("name") or "Anonymous").strip()[:80] or "Anonymous"
-    email = str(data.get("email") or "").strip()[:160]
-    donation_type = data.get("type", "cash")
-    submission = {"id": f"submission-{len(pending_submissions) + 1}", "name": name, "email": email, "type": donation_type, "date": datetime.today().strftime("%Y-%m-%d")}
-    if donation_type == "cash":
-        amount = positive_float(data.get("amount"), 0)
-        if amount <= 0:
-            return jsonify({"error": "Enter a valid cash amount greater than zero."}), 400
-        submission.update({"value": amount, "amount": amount})
-    elif donation_type == "goods":
-        item = get_item(data.get("itemId") or data.get("item_id"))
-        quantity = positive_int(data.get("quantity"), 0)
-        if not item or quantity <= 0:
-            return jsonify({"error": "Choose a valid item and quantity."}), 400
-        submission.update({"item_id": item["id"], "item_name": item["name"], "quantity": quantity, "value": item["value"] * quantity})
-    else:
-        return jsonify({"error": "Choose a supported donation type."}), 400
+    if data.get("type", "goods") != "goods":
+        return jsonify({"error": "Give cash through GoFundMe or Cash App. This form is for goods only."}), 400
+    item = get_item(data.get("itemId") or data.get("item_id"))
+    quantity = positive_int(data.get("quantity"), 0)
+    if not item or quantity <= 0:
+        return jsonify({"error": "Choose a valid item and quantity."}), 400
     try:
-        # Only cash gifts have a payment to prove; goods are confirmed at drop-off.
-        screenshot = save_screenshot(request.files.get("screenshot")) if donation_type == "cash" else None
-        if donation_type == "cash" and not screenshot:
-            raise ValueError("A payment screenshot is required for cash donations.")
+        email = clean_email(data.get("email"))
     except ValueError as error:
         return jsonify({"error": str(error)}), 400
-    if screenshot:
-        submission["screenshot"] = screenshot
-    pending_submissions.insert(0, submission)
-    persist_state()
+    name = str(data.get("name") or "Anonymous").strip()[:80] or "Anonymous"
+    submission = {
+        "id": f"submission-{uuid4().hex}", "name": name, "email": email, "type": "goods",
+        "item_id": item["id"], "item_name": item["name"], "quantity": quantity,
+        "value": item["value"] * quantity, "date": datetime.today().strftime("%Y-%m-%d"),
+    }
+    with state_lock:
+        if campaign_status() != "active":
+            return jsonify({"error": "This fundraiser is no longer accepting submissions."}), 409
+        pending_submissions.insert(0, submission)
+        persist_state()
     return jsonify({"message": "Thank you. Your donation is pending review."}), 201
 
 
@@ -306,18 +268,28 @@ def api_submit_donation():
 def api_admin_login():
     if request.method == "OPTIONS":
         return ("", 204)
+    if not allow_login():
+        return jsonify({"error": "Too many sign-in attempts. Wait a minute and try again."}), 429
     data = request.get_json(silent=True) or {}
-    if data.get("password", "") != os.environ.get("ADMIN_PASSWORD", "admin123"):
+    password = str(data.get("password", ""))
+    if not secrets.compare_digest(password.encode(), os.environ.get("ADMIN_PASSWORD", "admin123").encode()):
         return jsonify({"error": "Incorrect password."}), 401
     session["admin_logged_in"] = True
     return jsonify({"authenticated": True})
+
+
+@app.route("/api/admin/logout", methods=["POST"])
+def api_admin_logout():
+    session.pop("admin_logged_in", None)
+    return jsonify({"authenticated": False})
 
 
 @app.route("/api/admin/review", methods=["GET"])
 def api_admin_review():
     if not admin_required():
         return jsonify({"error": "unauthorized"}), 401
-    return jsonify({"pending": [admin_submission_payload(entry) for entry in pending_submissions], "verified": verified_donations})
+    with state_lock:
+        return jsonify({"pending": pending_submissions, "verified": verified_donations})
 
 
 def admin_donation_from_data(data, existing=None):
@@ -330,6 +302,7 @@ def admin_donation_from_data(data, existing=None):
         "name": name,
         "type": donation_type,
         "date": str(data.get("date", existing.get("date", date.today().isoformat()))),
+        "email": clean_email(data.get("email", existing.get("email", ""))),
     }
     try:
         date.fromisoformat(donation["date"])
@@ -365,30 +338,32 @@ def api_admin_create_donation():
         donation = admin_donation_from_data(request.get_json(silent=True) or {})
     except ValueError as error:
         return jsonify({"error": str(error)}), 400
-    verified_donations.insert(0, donation)
-    persist_state()
-    return jsonify(public_payload()), 201
+    with state_lock:
+        verified_donations.insert(0, donation)
+        persist_state()
+        return jsonify(public_payload()), 201
 
 
 @app.route("/api/admin/donations/<donation_id>", methods=["PUT", "DELETE"])
 def api_admin_manage_donation(donation_id):
     if not admin_required():
         return jsonify({"error": "unauthorized"}), 401
-    donation = next((entry for entry in verified_donations if entry["id"] == donation_id), None)
-    if not donation:
-        return jsonify({"error": "Donation not found."}), 404
-    if request.method == "DELETE":
-        verified_donations.remove(donation)
+    with state_lock:
+        donation = next((entry for entry in verified_donations if entry["id"] == donation_id), None)
+        if not donation:
+            return jsonify({"error": "Donation not found."}), 404
+        if request.method == "DELETE":
+            verified_donations.remove(donation)
+            persist_state()
+            return jsonify(public_payload())
+        try:
+            updated = admin_donation_from_data(request.get_json(silent=True) or {}, donation)
+        except ValueError as error:
+            return jsonify({"error": str(error)}), 400
+        donation.clear()
+        donation.update(updated)
         persist_state()
         return jsonify(public_payload())
-    try:
-        updated = admin_donation_from_data(request.get_json(silent=True) or {}, donation)
-    except ValueError as error:
-        return jsonify({"error": str(error)}), 400
-    donation.clear()
-    donation.update(updated)
-    persist_state()
-    return jsonify(public_payload())
 
 
 @app.route("/api/admin/export.csv")
@@ -397,55 +372,41 @@ def api_admin_export():
         return jsonify({"error": "unauthorized"}), 401
     output = io.StringIO(newline="")
     writer = csv.writer(output)
-    writer.writerow(["id", "name", "type", "value", "item", "quantity", "date"])
-    for donation in verified_donations:
-        writer.writerow([
-            donation.get("id", ""), donation.get("name", ""), donation.get("type", ""),
-            donation.get("value", ""), donation.get("item_name", ""),
-            donation.get("quantity", ""), donation.get("date", ""),
-        ])
+    writer.writerow(["id", "name", "email", "type", "value", "item", "quantity", "date"])
+    with state_lock:
+        for donation in verified_donations:
+            writer.writerow([
+                donation.get("id", ""), donation.get("name", ""), donation.get("email", ""),
+                donation.get("type", ""), donation.get("value", ""), donation.get("item_name", ""),
+                donation.get("quantity", ""), donation.get("date", ""),
+            ])
     response = make_response(output.getvalue())
     response.headers["Content-Type"] = "text/csv; charset=utf-8"
     response.headers["Content-Disposition"] = "attachment; filename=verified-donations.csv"
     return response
 
 
-@app.route("/api/admin/submissions/<submission_id>/screenshot")
-def api_admin_screenshot(submission_id):
-    if not admin_required():
-        return jsonify({"error": "unauthorized"}), 401
-    submission = next((entry for entry in pending_submissions if entry["id"] == submission_id), None)
-    if not submission or not submission.get("screenshot"):
-        return jsonify({"error": "Screenshot not found."}), 404
-    screenshot_path = UPLOAD_DIR / submission["screenshot"]["storageName"]
-    if not screenshot_path.is_file():
-        return jsonify({"error": "Screenshot not found."}), 404
-    return send_file(screenshot_path, mimetype=submission["screenshot"]["mime"], as_attachment=False, download_name=submission["screenshot"]["originalName"])
-
-
 @app.route("/api/admin/submissions/<submission_id>/<action>", methods=["POST"])
 def api_admin_moderate(submission_id, action):
     if not admin_required():
         return jsonify({"error": "unauthorized"}), 401
-    submission = next((entry for entry in pending_submissions if entry["id"] == submission_id), None)
     if action not in {"approve", "reject"}:
         return jsonify({"error": "Unsupported moderation action."}), 400
-    if not submission and submission_id in moderation_log:
-        return jsonify(public_payload())
-    if not submission:
-        return jsonify({"error": "Submission not found."}), 404
-    if action == "approve":
-        verified_donations.insert(0, {key: value for key, value in submission.items() if key != "email"})
-        delete_screenshot(submission)
-        verified_donations[0].pop("screenshot", None)
-    else:
-        delete_screenshot(submission)
-    moderation_log[submission_id] = action + "d"
-    pending_submissions.remove(submission)
-    persist_state()
+    with state_lock:
+        submission = next((entry for entry in pending_submissions if entry["id"] == submission_id), None)
+        if not submission and submission_id in moderation_log:
+            return jsonify(public_payload())
+        if not submission:
+            return jsonify({"error": "Submission not found."}), 404
+        if action == "approve":
+            verified_donations.insert(0, dict(submission))
+        moderation_log[submission_id] = action + "d"
+        pending_submissions.remove(submission)
+        persist_state()
+        payload = public_payload()
     if action == "approve":
         thank_donor(submission)
-    return jsonify(public_payload())
+    return jsonify(payload)
 
 
 @app.route("/api/admin/settings", methods=["GET", "PUT"])
@@ -453,187 +414,66 @@ def api_admin_settings():
     if not admin_required():
         return jsonify({"error": "unauthorized"}), 401
     if request.method == "GET":
-        return jsonify({"campaign": campaign})
+        with state_lock:
+            return jsonify({"campaign": campaign})
     data = request.get_json(silent=True) or {}
-    campaign["goal"] = positive_float(data.get("goal"), campaign["goal"])
-    campaign["cashtag"] = str(data.get("cashtag") or campaign["cashtag"]).strip()
-    campaign["end_date"] = str(data.get("endDate", campaign["end_date"]))
-    campaign["distribution"] = str(data.get("distribution") or campaign["distribution"]).strip()
-    if "items" in data:
-        incoming_items = data["items"]
-        if not isinstance(incoming_items, list) or {item.get("id") for item in incoming_items} != {item["id"] for item in campaign["items"]}:
-            return jsonify({"error": "Items must include every existing item exactly once."}), 400
-        updated_items = []
-        for current in campaign["items"]:
-            incoming = next(item for item in incoming_items if item.get("id") == current["id"])
-            value = positive_float(incoming.get("value"), 0)
-            target = positive_int(incoming.get("target"), 0)
-            if value <= 0 or target <= 0:
-                return jsonify({"error": "Item values and targets must be greater than zero."}), 400
-            updated_items.append({**current, "value": value, "target": target})
+    gofundme_url = str(data.get("gofundmeUrl") or campaign["gofundme_url"]).strip()
+    if not gofundme_url.startswith("https://"):
+        return jsonify({"error": "The GoFundMe link must start with https://."}), 400
+    end_date = str(data.get("endDate", campaign["end_date"]))
+    if end_date:
+        try:
+            date.fromisoformat(end_date)
+        except ValueError:
+            return jsonify({"error": "End date must use YYYY-MM-DD format."}), 400
+    with state_lock:
+        updated_items = campaign["items"]
+        if "items" in data:
+            incoming_items = data["items"]
+            if not isinstance(incoming_items, list) or {item.get("id") for item in incoming_items} != {item["id"] for item in campaign["items"]}:
+                return jsonify({"error": "Items must include every existing item exactly once."}), 400
+            updated_items = []
+            for current in campaign["items"]:
+                incoming = next(item for item in incoming_items if item.get("id") == current["id"])
+                value = positive_float(incoming.get("value"), 0)
+                target = positive_int(incoming.get("target"), 0)
+                if value <= 0 or target <= 0:
+                    return jsonify({"error": "Item values and targets must be greater than zero."}), 400
+                updated_items.append({**current, "value": value, "target": target})
+        campaign["goal"] = positive_float(data.get("goal"), campaign["goal"])
+        campaign["gofundme_url"] = gofundme_url
+        campaign["cashtag"] = str(data.get("cashtag") or campaign["cashtag"]).strip()
+        campaign["end_date"] = end_date
+        campaign["distribution"] = str(data.get("distribution") or campaign["distribution"]).strip()
         campaign["items"] = updated_items
-    persist_state()
-    return jsonify({"campaign": campaign})
+        persist_state()
+        return jsonify({"campaign": campaign})
+
+
+def react_page():
+    if (FRONTEND_DIST / "index.html").exists():
+        return send_from_directory(FRONTEND_DIST, "index.html")
+    return ("The frontend has not been built. Run npm run build in frontend/.", 503)
 
 
 @app.route("/")
 def dashboard():
-    if (FRONTEND_DIST / "index.html").exists():
-        return send_from_directory(FRONTEND_DIST, "index.html")
-    raised = total_raised()
-    goal = float(campaign["goal"])
-    return render_template(
-        "index.html", campaign=campaign, donations=verified_donations,
-        total_raised=raised, progress=min((raised / goal) * 100, 100) if goal else 0,
-        remaining=max(goal - raised, 0), donor_count=len(verified_donations),
-        item_totals=item_totals(), admin_session=admin_required(),
-    )
+    return react_page()
 
 
 @app.route("/about")
 def about_page():
-    if FRONTEND_DIST.exists():
-        return send_from_directory(FRONTEND_DIST, "index.html")
-    return redirect(url_for("dashboard"))
-
-
-@app.route("/assets/<path:filename>")
-def frontend_asset(filename):
-    if FRONTEND_DIST.exists():
-        return send_from_directory(FRONTEND_DIST / "assets", filename)
-    return ("", 404)
-
-
-@app.route("/submissions", methods=["POST"])
-def submit_donation():
-    if request.form.get("honeypot"):
-        flash("Submission rejected.", "error")
-        return redirect(url_for("dashboard"))
-    if campaign_status() != "active":
-        flash("This fundraiser is no longer accepting submissions.", "error")
-        return redirect(url_for("dashboard"))
-    name = (request.form.get("name") or "Anonymous").strip()[:80] or "Anonymous"
-    email = (request.form.get("email") or "").strip()[:160]
-    donation_type = request.form.get("type", "cash")
-    submission = {"id": f"submission-{len(pending_submissions) + 1}", "name": name, "email": email, "type": donation_type, "date": datetime.today().strftime("%Y-%m-%d")}
-
-    if donation_type == "cash":
-        try:
-            amount = float(request.form.get("amount", "0"))
-        except (TypeError, ValueError):
-            amount = 0
-        if amount <= 0:
-            flash("Enter a valid cash amount greater than zero.", "error")
-            return redirect(url_for("dashboard"))
-        submission.update({"value": amount, "amount": amount})
-    elif donation_type == "goods":
-        item = get_item(request.form.get("item_id"))
-        quantity = positive_int(request.form.get("quantity"), 0)
-        if not item or quantity <= 0:
-            flash("Choose a valid item and quantity.", "error")
-            return redirect(url_for("dashboard"))
-        submission.update({"item_id": item["id"], "item_name": item["name"], "quantity": quantity, "value": item["value"] * quantity})
-    else:
-        flash("Choose a supported donation type.", "error")
-        return redirect(url_for("dashboard"))
-
-    try:
-        # Only cash gifts have a payment to prove; goods are confirmed at drop-off.
-        screenshot = save_screenshot(request.files.get("screenshot")) if donation_type == "cash" else None
-        if donation_type == "cash" and not screenshot:
-            raise ValueError("A payment screenshot is required for cash donations.")
-    except ValueError as error:
-        flash(str(error), "error")
-        return redirect(url_for("dashboard"))
-    if screenshot:
-        submission["screenshot"] = screenshot
-    pending_submissions.insert(0, submission)
-    persist_state()
-    flash("Thank you. Your donation is pending review.", "success")
-    return redirect(url_for("dashboard"))
-
-
-@app.route("/admin/login", methods=["GET", "POST"])
-def admin_login():
-    if request.method == "POST":
-        if request.form.get("password", "") == os.environ.get("ADMIN_PASSWORD", "admin123"):
-            session["admin_logged_in"] = True
-            return redirect(url_for("admin_dashboard"))
-        flash("Incorrect password.", "error")
-    return render_template("admin_login.html", campaign=campaign)
+    return react_page()
 
 
 @app.route("/admin")
 def admin_dashboard():
-    if FRONTEND_DIST.exists():
-        return send_from_directory(FRONTEND_DIST, "index.html")
-    if not admin_required():
-        return redirect(url_for("admin_login"))
-    return render_template("admin.html", campaign=campaign, pending_submissions=pending_submissions, verified_donations=verified_donations)
+    return react_page()
 
 
-@app.route("/admin/logout")
-def admin_logout():
-    session.pop("admin_logged_in", None)
-    return redirect(url_for("dashboard"))
-
-
-@app.route("/admin/approve/<submission_id>", methods=["POST"])
-def approve_submission(submission_id):
-    if not admin_required():
-        return jsonify({"error": "unauthorized"}), 401
-    submission = next((entry for entry in pending_submissions if entry["id"] == submission_id), None)
-    if not submission:
-        if submission_id in moderation_log:
-            return redirect(url_for("admin_dashboard"))
-        flash("Submission not found.", "error")
-        return redirect(url_for("admin_dashboard"))
-    verified_donations.insert(0, {key: value for key, value in submission.items() if key not in {"email", "screenshot"}})
-    delete_screenshot(submission)
-    moderation_log[submission_id] = "approved"
-    pending_submissions.remove(submission)
-    persist_state()
-    thank_donor(submission)
-    flash("Donation approved and added to public totals.", "success")
-    return redirect(url_for("admin_dashboard"))
-
-
-@app.route("/admin/reject/<submission_id>", methods=["POST"])
-def reject_submission(submission_id):
-    if not admin_required():
-        return jsonify({"error": "unauthorized"}), 401
-    if submission_id in moderation_log:
-        return redirect(url_for("admin_dashboard"))
-    submission = next((entry for entry in pending_submissions if entry["id"] == submission_id), None)
-    if not submission:
-        flash("Submission not found.", "error")
-        return redirect(url_for("admin_dashboard"))
-    delete_screenshot(submission)
-    pending_submissions[:] = [entry for entry in pending_submissions if entry["id"] != submission_id]
-    moderation_log[submission_id] = "rejected"
-    persist_state()
-    flash("Submission rejected.", "success")
-    return redirect(url_for("admin_dashboard"))
-
-
-@app.route("/admin/settings", methods=["GET", "POST"])
-def admin_settings():
-    if not admin_required():
-        return redirect(url_for("admin_login"))
-    if request.method == "POST":
-        campaign["goal"] = positive_float(request.form.get("goal"), campaign["goal"])
-        campaign["cashtag"] = (request.form.get("cashtag") or campaign["cashtag"]).strip()
-        campaign["end_date"] = request.form.get("end_date", campaign["end_date"])
-        campaign["distribution"] = (request.form.get("distribution") or campaign["distribution"]).strip()
-        campaign["items"] = [{
-            "id": item["id"], "name": item["name"],
-            "value": positive_float(request.form.get(f"item_value_{item['id']}"), item["value"]),
-            "target": positive_int(request.form.get(f"item_target_{item['id']}"), item["target"]),
-        } for item in DEFAULT_ITEMS]
-        persist_state()
-        flash("Campaign settings saved.", "success")
-        return redirect(url_for("admin_dashboard"))
-    return render_template("admin_settings.html", campaign=campaign)
+@app.route("/assets/<path:filename>")
+def frontend_asset(filename):
+    return send_from_directory(FRONTEND_DIST / "assets", filename)
 
 
 @app.route("/health")

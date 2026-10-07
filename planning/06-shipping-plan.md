@@ -6,14 +6,14 @@ This plan lists everything that must happen before the 25:35 site goes live on R
 
 | Date | Milestone |
 | --- | --- |
-| 2026-10-07 | Shipping plan written; payment-model decision pending |
-| ~2026-10-24 | Code fixes merged, Railway configured, smoke test passed |
-| ~2026-10-31 | Public launch and announcement |
+| 2026-10-07 | Shipping plan written; Decisions 1 and 2 made |
+| As soon as ready | Code fixes merged, Railway configured, smoke test passed |
+| As soon as ready | Public launch and announcement (no fixed date; ship when Phase 5 passes) |
 | 2026-11-12 | Campaign closes (`end_date`) |
 | 2026-11-13 to 11-14 | Outreach event |
 | After 2026-11-14 | Final export, data cleanup, scale down |
 
-Launching by the end of October leaves roughly two weeks for donations before the campaign closes.
+There is no fixed launch date. Ship as soon as the minimum path below is complete, because every day earlier is another day of donations before the campaign closes.
 
 ## Current state
 
@@ -24,25 +24,35 @@ Launching by the end of October leaves roughly two weeks for donations before th
 
 ## Decision 1: How cash donations are collected
 
-Make this decision first, because it changes how much of Phase 1 is needed.
+**Decided (2026-10-07): Option B.** GoFundMe is the main way to give cash. Cash App stays on the site as a secondary, fee-free option.
 
 **Option A: keep the current manual flow.** Donors pay through Cash App, upload a screenshot, and an admin approves each one. There are no platform fees, but every item in Phase 1 is required and an admin has to check the queue every day.
 
 **Option B: GoFundMe for cash, the site for everything else.** Cash donations go through a GoFundMe link or embed. The site keeps the story, the goods drive, item progress, volunteer signup, and the About page. This removes screenshot uploads, cash moderation, and most of the security risk. The trade-offs are card processing fees (roughly 3% per donation; confirm current rates), donors leaving the site to give, and payouts going to one organizer's personal bank account. Cash App can stay as an optional fee-free alternative, recorded by admins as manual donations.
 
-Recommendation: **Option B**, given the deadline.
+Follow-up decisions (2026-10-07):
+
+- The GoFundMe campaign is https://gofund.me/901ac545b.
+- The site links to GoFundMe with a donate button rather than embedding its widget.
+- Admins enter GoFundMe and Cash App gifts by hand as manual donations, so they count toward the one progress bar. The site no longer accepts cash submissions or payment screenshots.
+- The goods donation form is the only form the public fills out.
+- Donor emails are kept after the campaign so 25:35 can tell donors about future events.
 
 ## Decision 2: Where production data lives
 
-**Option A: Railway volume (recommended for this campaign).** Keep SQLite and local uploads, and mount a Railway volume at `/data`. This is a config change only.
+**Decided (2026-10-07): Option A.** The campaign is not expected to pass 1,000 users.
+
+**Option A: Railway volume.** Keep SQLite and local uploads, and mount a Railway volume at `/data`. This is a config change only.
 
 **Option B: Neon PostgreSQL plus Supabase Storage.** This matches `05-production-decisions.md`, but it needs SQLAlchemy models, migrations, and a storage adapter that are not built yet.
 
-If Option A is chosen, update the README and `05-production-decisions.md` to match.
+Update the README and `05-production-decisions.md` to match.
 
 ## Phase 1: Code fixes
 
-Items marked **(cash flow)** can be dropped if Decision 1 picks GoFundMe and the cash submission code is removed.
+**Status (2026-10-07):** all items done on the `preparing-for-shipping` branch. Item 6 was already fixed. Item 3 is handled by the production entry point `backend/wsgi.py`, so the gunicorn command is `gunicorn -w 1 --threads 8 -b 0.0.0.0:$PORT backend.wsgi:app`. The duplicate admin panel on the home page (`?admin=1`) was removed; `/admin` is the only admin page and now has a sign-out button.
+
+All items are in scope, including the ones marked Recommended.
 
 | # | Issue | Location | Fix | Required |
 | --- | --- | --- | --- | --- |
@@ -56,15 +66,18 @@ Items marked **(cash flow)** can be dropped if Decision 1 picks GoFundMe and the
 | 8 | Request threads change shared state without a lock. | `backend/app.py` | Wrap changes and `persist_state()` in a `threading.Lock` | Recommended |
 | 9 | Admin login has no limit on password attempts. | `/api/admin/login` | Limit to 5 attempts per minute per IP | Recommended |
 | 10 | The legacy Flask form routes (`/submissions`, `/admin/approve`, and others) skip the CSRF check. React is the shipping frontend. | `backend/app.py`, `templates/` | Remove the legacy routes and templates | Recommended |
-| 11 | Screenshot upload and storage, cash moderation **(cash flow)** | `backend/app.py`, `frontend/src/` | Keep and harden (Decision 1 Option A) or remove (Option B) | Depends |
+| 11 | Screenshot upload and storage, cash moderation | `backend/app.py`, `frontend/src/` | Remove; cash is entered by admins as manual donations | Yes |
+
+| 12 | GoFundMe is not on the site yet. | `frontend/src/main.jsx`, `backend/app.py` (`campaign`) | Add a `gofundme_url` campaign setting (`https://gofund.me/901ac545b`) and a prominent donate button, with Cash App shown as secondary | Yes |
+| 13 | The goal is still the $1,000 placeholder. | `backend/app.py` (`campaign`) | Set `goal` to `2000.0` | Yes |
 
 **The app must run with exactly one gunicorn worker** while state lives in process memory. Multiple workers would each hold separate copies of the data and overwrite each other's saves.
 
 ## Phase 2: Tests and local data
 
-1. Point `DATABASE_PATH` and `UPLOAD_DIR` at a temporary directory in `tests/conftest.py` before `backend.app` is imported. The tests currently read and write the real `instance/fundraiser.sqlite3`.
-2. Add tests for unique submission IDs, the login attempt limit, and startup failure when secrets are missing.
-3. Delete `instance/fundraiser.sqlite3` and `instance/uploads/` after the fixes.
+1. Done: `tests/conftest.py` points `DATABASE_PATH` at a temporary directory before `backend.app` is imported.
+2. Done: tests cover unique submission IDs, the login attempt limit, per-visitor rate limits, email privacy, and startup failure when secrets are missing.
+3. Done: deleted the old local `instance/` test database and uploads.
 4. Upgrade the local environment to Python 3.12 (the current `.venv` is 3.9.6, and the README requires 3.10+). Add `.python-version` containing `3.12`.
 5. Confirm that `pytest -q` and `npm run build` both pass, then merge to `main` through a PR.
 
@@ -73,7 +86,7 @@ Items marked **(cash flow)** can be dropped if Decision 1 picks GoFundMe and the
 1. Create a Railway project on the Hobby plan and connect the GitHub repo to deploy from `main`.
 2. Add a `Dockerfile` so the build runs both Node and Python:
    - Stage 1: `cd frontend && npm ci && npm run build`
-   - Stage 2: copy `frontend/dist`, `pip install -r requirements.txt`, start gunicorn
+   - Stage 2: copy `frontend/dist`, `pip install -r requirements.txt`, start gunicorn with `backend.wsgi:app`
 3. Attach a volume at `/data` (Decision 2 Option A).
 4. Set the environment variables:
 
@@ -82,7 +95,6 @@ Items marked **(cash flow)** can be dropped if Decision 1 picks GoFundMe and the
    ADMIN_PASSWORD=<strong unique password>
    COOKIE_SECURE=1
    DATABASE_PATH=/data/fundraiser.sqlite3
-   UPLOAD_DIR=/data/uploads
    MAIL_USERNAME=spreadmatthew2535@gmail.com
    MAIL_PASSWORD=<Gmail app password>
    MAIL_SENDER_NAME=Spread 25:35
@@ -91,29 +103,31 @@ Items marked **(cash flow)** can be dropped if Decision 1 picks GoFundMe and the
 
    Leave out `GEMINI_API_KEY`, because `backend/llm_audit.py` is not connected to any route yet. Leave out `FRONTEND_ORIGIN`, because the API and the site share one origin.
 5. Set the health check path to `/health`.
-6. Optionally add a custom domain, and confirm that HTTPS works and HTTP redirects to it.
-7. Set a usage limit in Railway billing.
+6. Buy `matt2535.net`, add it as a custom domain in Railway, set the DNS records Railway gives, and confirm that HTTPS works and HTTP redirects to it.
+7. Set a usage limit in Railway billing (Malachi, at launch).
 
 ## Phase 4: Content and legal review
 
-1. Confirm the goal ($1,000 placeholder), item values and targets, end date (2026-11-12), and event dates (2026-11-13 to 11-14).
-2. Verify the cashtag `$Spread2535` (or the GoFundMe link) character by character.
-3. Have someone review the not-tax-deductible notice in both footers.
-4. Add a short privacy note covering what is collected (names, emails, and payment screenshots if those stay), why, when screenshots are deleted, and a contact email.
-5. Send a test thank-you email and review the wording and volunteer link.
+1. Confirm the goal ($2,000; may still change), item values and targets, end date (2026-11-12), and event dates (2026-11-13 to 11-14).
+2. Verify the GoFundMe link and the cashtag `$Spread2535` character by character.
+3. The not-tax-deductible notice in both footers was checked on 2026-10-07: "We are not a registered nonprofit organization. Donations are not tax-deductible." No change needed.
+4. Add a short privacy note covering what is collected (names and emails), why, that emails may be used to announce future 25:35 events, and a contact email. Any future event email needs an unsubscribe option.
+5. Send a test thank-you email and review the wording and volunteer link. The volunteer Google Form URL on this branch is final.
 6. Proofread the home and About pages.
 
 ## Phase 5: Production smoke test
 
 Run these on the Railway URL, on both a phone and a desktop.
 
+- [ ] The GoFundMe button or embed opens the correct campaign
 - [ ] `/health` returns `{"status": "ok"}`; `/` and `/about` load
-- [ ] A cash submission shows as pending, and the public total is unchanged
-- [ ] A goods submission works without a screenshot
-- [ ] Invalid input is rejected: a non-image file, a file over 1 MB, an amount of zero
+- [ ] A goods submission shows as pending, and the public totals are unchanged
+- [ ] Invalid goods input is rejected (missing item, quantity of zero)
+- [ ] The page has no cash submission form or screenshot upload
 - [ ] Admin login works with the new password, and `admin123` is rejected
-- [ ] Approving updates the totals, deletes the screenshot, and sends the thank-you email (check spam)
-- [ ] Rejecting removes the submission and its screenshot
+- [ ] Approving updates the totals and sends the thank-you email (check spam)
+- [ ] Rejecting removes the submission
+- [ ] A manual GoFundMe or Cash App donation entered by an admin updates the public total
 - [ ] CSV export works; manual donations can be added, edited, and deleted
 - [ ] **After a redeploy, all data is still there**
 - [ ] Rate limiting blocks only the device sending too many submissions
@@ -123,17 +137,17 @@ Run these on the Railway URL, on both a phone and a desktop.
 
 - **Backups:** export the CSV daily and copy the SQLite file off the volume weekly.
 - **Monitoring:** enable Railway deploy and crash notifications, and add an uptime check on `/health`.
-- **Moderation:** name who checks the review queue and how often (at least twice a day).
+- **Moderation:** the developers share the admin password and check the review queue (at least twice a day).
 - **Changes during the campaign:** only through branch and PR. Know how to roll back a deploy in Railway.
 - **Email:** Gmail allows about 500 messages a day, which is enough for this campaign.
 
 ## Phase 7: After the campaign
 
 1. Download the final CSV and SQLite backup.
-2. Delete any remaining screenshots and pending submissions.
-3. Decide how long to keep donor email addresses, then delete them.
+2. Delete any remaining pending submissions.
+3. Keep donor names and emails for future event announcements; store the final export somewhere only organizers can reach.
 4. Scale down or remove the Railway service.
 
 ## Minimum path to launch
 
-Decisions 1 and 2, Phase 1 items 1 to 6, Phase 2 items 1, 3, and 5, all of Phase 3, Phase 4 items 1 and 2, and Phase 5.
+Phase 1 items 1 to 6 and 11 to 13, Phase 2 items 1, 3, and 5, all of Phase 3, Phase 4 items 1 and 2, and Phase 5.

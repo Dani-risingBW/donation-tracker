@@ -1,13 +1,13 @@
 # 25:35 Fundraiser Tracker
 
-25:35 is a React + Flask fundraiser dashboard for a Washington, D.C. outreach campaign. Public totals include verified donations only; donor submissions enter an admin review queue first.
+25:35 is a React + Flask fundraiser dashboard for a Washington, D.C. outreach campaign. Money is given through GoFundMe (main) or Cash App, and admins record each gift by hand. The public form is for goods pledges only, which enter an admin review queue. Public totals include verified donations only.
 
 ## Features
 
 - Public 25:35 mission, scripture, progress, and item-drive sections
-- Cash and goods donation submissions with server-side validation
-- Required private payment screenshots for cash donations, reviewed by admins
-- Admin login, approval/rejection queue, and campaign settings
+- GoFundMe donate button, with Cash App as a fee-free alternative
+- Goods pledge form with server-side validation
+- Admin login, goods approval/rejection queue, and campaign settings
 - Admin CRUD for verified manual donations and item progress values/targets
 - Verified-only public totals and item quantities
 - Health endpoint at `/health`
@@ -61,34 +61,36 @@ Public clients can read campaign progress and submit donations without an accoun
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
 | `GET` | `/api/campaign` | Campaign settings, verified totals, item progress, and recent verified gifts |
-| `POST` | `/api/submissions` | Submit a cash or goods donation for review |
+| `POST` | `/api/submissions` | Pledge a goods donation for review |
 | `GET` | `/health` | Basic service health check |
 
 Admin API calls use the Flask session created by `POST /api/admin/login`:
 
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
-| `POST` | `/api/admin/login` | Start an admin session |
+| `POST` | `/api/admin/login` | Start an admin session (5 attempts per minute per IP) |
+| `POST` | `/api/admin/logout` | End the admin session |
 | `GET` | `/api/admin/review` | Read pending and verified donations |
 | `POST` | `/api/admin/donations` | Add a verified manual cash or goods donation |
 | `PUT` / `DELETE` | `/api/admin/donations/<id>` | Edit or remove a verified donation |
-| `GET` | `/api/admin/export.csv` | Download verified donations as CSV |
+| `GET` | `/api/admin/export.csv` | Download verified donations, including donor emails, as CSV |
 | `POST` | `/api/admin/submissions/<id>/approve` | Approve a pending donation |
 | `POST` | `/api/admin/submissions/<id>/reject` | Reject a pending donation |
-| `GET` | `/api/admin/submissions/<id>/screenshot` | View a pending screenshot; admin session required |
 | `GET` / `PUT` | `/api/admin/settings` | Read or update campaign settings |
 
 The React API client sends JSON and uses `credentials: include` so the admin session cookie is preserved.
 
 ## Production architecture decision
 
-The production database will be **Neon PostgreSQL**, accessed through **SQLAlchemy**. SQLite remains the default for local development because it requires no separate service. PostgreSQL is preferred for production because it handles concurrent writes more reliably and provides a straightforward path to migrations and backups.
+Production runs on Railway with SQLite on a Railway volume mounted at `/data` (`DATABASE_PATH=/data/fundraiser.sqlite3`). The campaign is expected to stay under 1,000 users, so a managed database is not needed. See `planning/06-shipping-plan.md` for the full launch checklist.
 
-Payment screenshots will move from local `instance/uploads/` storage to a **private Supabase Storage bucket** accessed through a storage adapter. Screenshot URLs must never be public; files remain available only to authenticated admins and are deleted after approval or rejection.
+Start the app in production with:
 
-The Neon and Supabase free tiers are appropriate for an initial low-traffic launch, but they are not a substitute for a production backup and retention plan. Before the fundraiser depends on the system for important records, enable backups and move to paid resources as needed. Free services may sleep, pause, or impose storage and compute limits.
+```bash
+gunicorn -w 1 --threads 8 -b 0.0.0.0:$PORT backend.wsgi:app
+```
 
-Production configuration uses `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, and `SUPABASE_BUCKET`. Never commit these values. See `.env.example` for the configuration template.
+`backend.wsgi` refuses to start unless `SECRET_KEY` and `ADMIN_PASSWORD` are set to real values. Run exactly one worker: state lives in process memory, and several workers would overwrite each other's saves.
 
 ## Volunteer signup and tax status
 
@@ -104,12 +106,12 @@ The app can optionally use Google Gemini to summarize redacted admin audit metad
 
 ```text
 backend/app.py             Flask application, JSON API, and campaign workflows
+backend/wsgi.py            Production entry point that checks secrets
 backend/storage.py         SQLite state loading and persistence
 backend/mailer.py          Donor thank-you email delivery
 backend/llm_audit.py       Optional redacted Gemini audit analysis
 frontend/                  Vite React client
 planning/                  Product, implementation, production, and visual reference documents
-templates/                 Legacy Flask fallback and admin pages
 frontend/src/main.jsx      React application and API client
 frontend/src/styles.css    React application styles
 planning/05-production-decisions.md Railway hosting and production architecture decisions
@@ -119,7 +121,7 @@ requirements.txt           Python dependencies
 
 ## Current limitations
 
-The local app currently persists campaign settings, donations, and screenshot metadata in SQLite and stores uploads under `instance/uploads/`. Every cash donation requires a payment screenshot; goods donations do not, since items are confirmed at drop-off. Screenshots are limited to 1 MB, validated as PNG/JPEG/GIF/WebP, and deleted when approved or rejected. CSRF protection, submission throttling, secure session cookies, and baseline security headers are enabled. The production migration to Neon PostgreSQL, SQLAlchemy, and private Supabase Storage remains an implementation step before launch.
+Campaign settings and donations are persisted in SQLite. GoFundMe and Cash App gifts are not detected automatically; admins enter them as manual donations. Donor emails are kept for future 25:35 event announcements, are visible only to admins and in the CSV export, and are never included in the public API. CSRF protection, per-visitor submission throttling, admin login throttling, secure session cookies, and baseline security headers are enabled.
 
 ## Validation
 
