@@ -70,8 +70,8 @@ def test_approval_emails_donor_with_updated_total(client, sent):
     assert len(sent) == 1
     donation, recipient, raised, goal = sent[0]
     assert recipient == "donor@example.com"
-    assert donation["value"] == 10.0
-    assert raised == before + 10.0
+    assert donation["value"] == 40
+    assert raised == before + 40
 
 
 class InlineThread:

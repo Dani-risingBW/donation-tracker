@@ -26,16 +26,17 @@ app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_SECURE"] = os.environ.get("COOKIE_SECURE", "0") == "1"
 
+# Care-package items from the About page. Values are rough per-item costs; admins confirm values and targets.
 DEFAULT_ITEMS = [
-    {"id": "beanies", "name": "Knit Beanies", "value": 8, "target": 50},
-    {"id": "mittens", "name": "Warm Mittens", "value": 6, "target": 50},
-    {"id": "scarves", "name": "Fleece Scarves", "value": 10, "target": 40},
-    {"id": "sandwiches", "name": "Cold Sandwiches", "value": 4, "target": 100},
-    {"id": "fruit", "name": "Fruit Cups & Granola Bars", "value": 2, "target": 100},
-    {"id": "water", "name": "Bottled Water", "value": 1, "target": 200},
-    {"id": "hygiene", "name": "Hygiene Kits", "value": 5, "target": 60},
-    {"id": "bags", "name": "Drawstring Bags", "value": 3, "target": 60},
+    {"id": "sandwiches", "name": "Cold Sandwiches", "value": 4, "target": 150},
+    {"id": "mittens", "name": "Mittens (pairs)", "value": 5, "target": 150},
+    {"id": "scarves", "name": "Scarves", "value": 8, "target": 150},
+    {"id": "wipes", "name": "Wet Wipes (packs)", "value": 3, "target": 150},
+    {"id": "toiletries", "name": "Travel-size Toiletry Kits", "value": 5, "target": 150},
+    {"id": "feminine-hygiene", "name": "Feminine Hygiene Products (packs)", "value": 6, "target": 75},
 ]
+# The item list the site launched with; a saved campaign that still has it gets the care-package list instead.
+PLACEHOLDER_ITEM_IDS = {"beanies", "mittens", "scarves", "sandwiches", "fruit", "water", "hygiene", "bags"}
 
 campaign = {
     "name": "25:35",
@@ -74,6 +75,17 @@ campaign = state["campaign"]
 verified_donations = state["verified_donations"]
 pending_submissions = state["pending_submissions"]
 moderation_log = state.get("moderation_log", {})
+
+
+def replace_placeholder_items(saved_campaign):
+    if {item["id"] for item in saved_campaign["items"]} != PLACEHOLDER_ITEM_IDS:
+        return False
+    saved_campaign["items"] = [item.copy() for item in DEFAULT_ITEMS]
+    return True
+
+
+if replace_placeholder_items(campaign):
+    save_state({"campaign": campaign})
 
 
 def persist_state():
@@ -142,12 +154,13 @@ def positive_float(value, fallback):
     return parsed if parsed > 0 else fallback
 
 
-def positive_int(value, fallback):
+def whole_number(value):
+    """Return a positive whole number, or 0 for anything else (including 8.01)."""
     try:
-        parsed = int(value)
+        parsed = float(value)
     except (TypeError, ValueError):
-        return fallback
-    return parsed if parsed > 0 else fallback
+        return 0
+    return int(parsed) if parsed.is_integer() and parsed > 0 else 0
 
 
 def campaign_status():
@@ -243,9 +256,9 @@ def api_submit_donation():
     if data.get("type", "goods") != "goods":
         return jsonify({"error": "Give cash through GoFundMe or Cash App. This form is for goods only."}), 400
     item = get_item(data.get("itemId") or data.get("item_id"))
-    quantity = positive_int(data.get("quantity"), 0)
+    quantity = whole_number(data.get("quantity"))
     if not item or quantity <= 0:
-        return jsonify({"error": "Choose a valid item and quantity."}), 400
+        return jsonify({"error": "Choose a valid item and a whole-number quantity."}), 400
     try:
         email = clean_email(data.get("email"))
     except ValueError as error:
@@ -316,9 +329,9 @@ def admin_donation_from_data(data, existing=None):
         donation["value"] = value
     elif donation_type == "goods":
         item = get_item(data.get("itemId", data.get("item_id", existing.get("item_id"))))
-        quantity = positive_int(data.get("quantity", existing.get("quantity", 0)), 0)
+        quantity = whole_number(data.get("quantity", existing.get("quantity", 0)))
         if not item or quantity <= 0:
-            raise ValueError("Choose a valid item and quantity greater than zero.")
+            raise ValueError("Choose a valid item and a whole-number quantity greater than zero.")
         donation.update({
             "item_id": item["id"],
             "item_name": item["name"],
@@ -435,10 +448,10 @@ def api_admin_settings():
             updated_items = []
             for current in campaign["items"]:
                 incoming = next(item for item in incoming_items if item.get("id") == current["id"])
-                value = positive_float(incoming.get("value"), 0)
-                target = positive_int(incoming.get("target"), 0)
+                value = whole_number(incoming.get("value"))
+                target = whole_number(incoming.get("target"))
                 if value <= 0 or target <= 0:
-                    return jsonify({"error": "Item values and targets must be greater than zero."}), 400
+                    return jsonify({"error": "Item values and targets must be whole numbers greater than zero."}), 400
                 updated_items.append({**current, "value": value, "target": target})
         campaign["goal"] = positive_float(data.get("goal"), campaign["goal"])
         campaign["gofundme_url"] = gofundme_url

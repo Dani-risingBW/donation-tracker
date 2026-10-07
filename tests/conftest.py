@@ -52,5 +52,5 @@ def login(client):
 
 
 def submit_goods(client, **fields):
-    data = {"type": "goods", "itemId": "water", "quantity": 3, **fields}
+    data = {"type": "goods", "itemId": "sandwiches", "quantity": 3, **fields}
     return client.post("/api/submissions", json=data, headers=csrf_headers(client))

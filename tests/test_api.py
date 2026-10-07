@@ -1,3 +1,4 @@
+import backend.app as app_module
 from backend.app import campaign, pending_submissions, verified_donations
 from conftest import csrf_headers, login, submit_goods
 
@@ -74,7 +75,7 @@ def test_rate_limit_is_per_visitor_behind_proxy(client, monkeypatch):
     headers = csrf_headers(client)
     first = {**headers, "X-Forwarded-For": "203.0.113.1"}
     second = {**headers, "X-Forwarded-For": "203.0.113.2"}
-    data = {"type": "goods", "itemId": "water", "quantity": 1}
+    data = {"type": "goods", "itemId": "sandwiches", "quantity": 1}
     assert client.post("/api/submissions", json=data, headers=first).status_code == 201
     assert client.post("/api/submissions", json=data, headers=first).status_code == 429
     assert client.post("/api/submissions", json=data, headers=second).status_code == 201
@@ -165,6 +166,34 @@ def test_admin_can_update_item_progress_settings(client):
     assert response.status_code == 200
     assert response.get_json()["campaign"]["items"][0]["value"] == 12
     assert response.get_json()["campaign"]["items"][0]["target"] == 75
+
+
+def test_item_values_and_targets_must_be_whole_numbers(client):
+    headers = csrf_headers(client)
+    assert login(client).status_code == 200
+    items = client.get("/api/admin/settings").get_json()["campaign"]["items"]
+    items[0]["value"] = "8"
+    items[0]["target"] = 75
+    assert client.put("/api/admin/settings", json={"items": items}, headers=headers).status_code == 200
+    assert campaign["items"][0]["value"] == 8
+    for field, bad in (("value", 8.01), ("target", "7.5")):
+        changed = [dict(item) for item in items]
+        changed[0][field] = bad
+        response = client.put("/api/admin/settings", json={"items": changed}, headers=headers)
+        assert response.status_code == 400
+        assert "whole numbers" in response.get_json()["error"]
+
+
+def test_goods_quantity_must_be_a_whole_number(client):
+    assert submit_goods(client, quantity=2.5).status_code == 400
+    assert submit_goods(client, quantity="2").status_code == 201
+
+
+def test_saved_placeholder_items_are_replaced_with_care_packages():
+    saved = {"items": [{"id": item_id} for item_id in app_module.PLACEHOLDER_ITEM_IDS]}
+    assert app_module.replace_placeholder_items(saved)
+    assert [item["id"] for item in saved["items"]] == [item["id"] for item in app_module.DEFAULT_ITEMS]
+    assert not app_module.replace_placeholder_items(saved)
 
 
 def test_ended_campaign_rejects_new_submissions(client):
