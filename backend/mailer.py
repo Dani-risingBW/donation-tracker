@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 SMTP_HOST = "smtp.gmail.com"
 SMTP_PORT = 465
 SUBJECT = "Thank you for partnering with 25:35"
+ADMIN_SUBJECT = "New 25:35 pledge needs your approval"
 
 
 def mail_settings():
@@ -83,12 +84,12 @@ def send_message(message):
         server.send_message(message)
 
 
-def _send_safely(message):
+def _send_safely(message, label="thank-you"):
     try:
         send_message(message)
-        logger.info("Sent thank-you email to %s", message["To"])
+        logger.info("Sent %s email to %s", label, message["To"])
     except Exception:
-        logger.exception("Could not send thank-you email to %s", message["To"])
+        logger.exception("Could not send %s email to %s", label, message["To"])
 
 
 def send_thank_you(donation, recipient, raised, goal):
@@ -104,4 +105,38 @@ def send_thank_you(donation, recipient, raised, goal):
         logger.warning("Thank-you email skipped: invalid recipient address.")
         return False
     threading.Thread(target=_send_safely, args=(message,), daemon=True).start()
+    return True
+
+
+def compose_admin_alert(submission, recipient, review_url):
+    settings = mail_settings()
+    name = submission.get("name", "").strip() or "Anonymous"
+    paragraphs = [
+        "Hi team,",
+        f"{name} just pledged {describe_gift(submission)} (about {friendly_money(submission['value'])}) and it is waiting for your approval.",
+        f"Review and approve it here: {review_url}",
+        "Approve the pledge once the items are dropped off. It only counts toward the campaign totals after that.",
+        "The 25:35 Site",
+    ]
+    message = EmailMessage()
+    message["Subject"] = ADMIN_SUBJECT
+    message["From"] = formataddr((settings["sender_name"], settings["username"]))
+    message["To"] = recipient
+    message.set_content("\n\n".join(paragraphs) + "\n")
+    return message
+
+
+def send_admin_alert(submission, recipient, review_url):
+    """Tell the admins a pledge is waiting, in the background so a donor's submit never waits on Gmail."""
+    if not recipient or "@" not in recipient:
+        return False
+    if not is_configured():
+        logger.warning("Admin alert skipped: MAIL_USERNAME and MAIL_PASSWORD are not set.")
+        return False
+    try:
+        message = compose_admin_alert(submission, recipient, review_url)
+    except ValueError:
+        logger.warning("Admin alert skipped: invalid recipient address.")
+        return False
+    threading.Thread(target=_send_safely, args=(message, "admin alert"), daemon=True).start()
     return True
