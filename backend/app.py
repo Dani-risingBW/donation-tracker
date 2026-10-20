@@ -124,6 +124,12 @@ def thank_donor(submission):
     mailer.send_thank_you(submission, submission.get("email", ""), total_raised(), float(campaign["goal"]))
 
 
+def alert_admins(submission):
+    """Email the admins about a new pending pledge; ADMIN_NOTIFY_EMAIL overrides the campaign contact address."""
+    recipient = os.environ.get("ADMIN_NOTIFY_EMAIL", "").strip() or campaign["contact_email"]
+    mailer.send_admin_alert(submission, recipient, f"{request.host_url}admin")
+
+
 def admin_required():
     return bool(session.get("admin_logged_in"))
 
@@ -281,6 +287,7 @@ def api_submit_donation():
             return jsonify({"error": "This fundraiser is no longer accepting submissions."}), 409
         pending_submissions.insert(0, submission)
         persist_state()
+    alert_admins(submission)
     return jsonify({"message": "Thank you. Your donation is pending review."}), 201
 
 

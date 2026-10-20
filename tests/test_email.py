@@ -86,6 +86,7 @@ def test_only_approvals_with_an_email_reach_gmail(client, mail_env, monkeypatch)
     delivered = []
     monkeypatch.setattr(mailer, "send_message", delivered.append)
     monkeypatch.setattr(mailer.threading, "Thread", InlineThread)
+    monkeypatch.setattr(mailer, "send_admin_alert", lambda *args: False)  # this test is about donor emails only
     submit_and_approve(client, "")
     assert delivered == []
     submit_goods(client, email="donor@example.com")
@@ -94,3 +95,30 @@ def test_only_approvals_with_an_email_reach_gmail(client, mail_env, monkeypatch)
     assert delivered == []
     submit_and_approve(client, "donor@example.com")
     assert [message["To"] for message in delivered] == ["donor@example.com"]
+
+
+def test_admin_alert_names_pledge_and_links_to_review_page(mail_env):
+    submission = {"name": "Malachi", "type": "goods", "quantity": 12, "item_name": "Scarves", "value": 96}
+    message = mailer.compose_admin_alert(submission, "admin@example.com", "https://example.com/admin")
+    body = message.get_content()
+    assert message["Subject"] == "New 25:35 pledge needs your approval"
+    assert message["To"] == "admin@example.com"
+    assert "Malachi just pledged 12 Scarves (about $96)" in body
+    assert "https://example.com/admin" in body
+
+
+def test_new_pledge_alerts_admin_email(client, monkeypatch):
+    alerts = []
+    monkeypatch.setattr(mailer, "send_admin_alert", lambda submission, recipient, url: alerts.append((submission, recipient, url)))
+    monkeypatch.setenv("ADMIN_NOTIFY_EMAIL", "admin@example.com")
+    assert submit_goods(client, name="Pat", quantity=4).status_code == 201
+    assert len(alerts) == 1
+    assert alerts[0][0]["name"] == "Pat" and alerts[0][1] == "admin@example.com"
+    assert alerts[0][2].endswith("/admin")
+
+
+def test_rejected_pledge_sends_no_admin_alert(client, monkeypatch):
+    alerts = []
+    monkeypatch.setattr(mailer, "send_admin_alert", lambda *args: alerts.append(args))
+    assert submit_goods(client, quantity=0).status_code == 400
+    assert alerts == []
