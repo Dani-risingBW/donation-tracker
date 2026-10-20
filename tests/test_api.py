@@ -9,6 +9,14 @@ def test_public_campaign_excludes_pending_donations(client):
     assert client.get("/api/campaign").get_json()["totalRaised"] == before
 
 
+def test_public_campaign_lists_dropoff_locations(client):
+    locations = client.get("/api/campaign").get_json()["campaign"]["dropoff_locations"]
+    assert len(locations) >= 2
+    for location in locations:
+        assert location["title"] and location["address"]
+        assert -90 <= location["lat"] <= 90 and -180 <= location["lng"] <= 180
+
+
 def test_public_form_rejects_cash(client):
     response = client.post("/api/submissions", json={"type": "cash", "amount": 25}, headers=csrf_headers(client))
     assert response.status_code == 400

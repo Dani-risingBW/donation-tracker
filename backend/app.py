@@ -54,6 +54,12 @@ campaign = {
     "contact_email": "spreadmatthew2535@gmail.com",
 }
 
+# Kept out of the saved campaign so edits here reach the live site on the next deploy.
+DROPOFF_LOCATIONS = [
+    {"id": "tubman-quad", "title": "Harriet Tubman Quadrangle at Howard University", "address": "2455 4th Street NW, Washington, DC 20059", "lat": 38.9223597, "lng": -77.0182265},
+    {"id": "axis", "title": "Axis at Howard University", "address": "2225 Georgia Ave NW, Washington, DC 20001", "lat": 38.9197388, "lng": -77.0215456},
+]
+
 verified_donations = []
 pending_submissions = []
 moderation_log = {}
@@ -192,6 +198,7 @@ def public_payload():
     goal = float(campaign["goal"])
     public_campaign = {
         **campaign,
+        "dropoff_locations": DROPOFF_LOCATIONS,
         "volunteer_form_url": os.environ.get(
             "VOLUNTEER_FORM_URL", "https://docs.google.com/forms/d/e/1FAIpQLSfingNyaQYAfLHCKJTrau8OozUlUEV-haxXMNalJy93zLrbeA/viewform"
         ).strip(),
