@@ -8,7 +8,7 @@ DEFAULT_DB_PATH = Path(__file__).parent.parent / "instance" / "fundraiser.sqlite
 
 
 def _connection():
-    db_path = Path(os.environ.get("DATABASE_PATH", DEFAULT_DB_PATH))
+    db_path = Path(os.environ.get("DATABASE_PATH") or DEFAULT_DB_PATH)
     db_path.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(db_path)
     connection.execute("CREATE TABLE IF NOT EXISTS app_state (key TEXT PRIMARY KEY, value TEXT NOT NULL)")

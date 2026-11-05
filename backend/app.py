@@ -20,7 +20,7 @@ PROJECT_ROOT = Path(__file__).parent.parent
 app = Flask(__name__, static_folder=None)
 # Railway's proxy adds one X-Forwarded-For hop; trust it so rate limits see each visitor's own IP.
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
-app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-key")
+app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY") or "dev-secret-key"
 app.config["MAX_CONTENT_LENGTH"] = 64 * 1024
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
@@ -58,6 +58,8 @@ campaign = {
 DROPOFF_LOCATIONS = [
     {"id": "tubman-quad", "title": "Harriet Tubman Quadrangle at Howard University", "address": "2455 4th Street NW, Washington, DC 20059", "lat": 38.9223597, "lng": -77.0182265},
     {"id": "axis", "title": "Axis at Howard University", "address": "2225 Georgia Ave NW, Washington, DC 20001", "lat": 38.9197388, "lng": -77.0215456},
+    {"id": "bethune-annex", "title": "Bethune Annex at Howard University", "address": "2225 Fourth Street NW, Washington, DC 20059", "lat": 38.9206417, "lng": -77.0179609},
+    {"id": "towers-west", "title": "Howard University – Towers West", "address": "2251 Sherman Avenue NW, Washington, DC 20001", "lat": 38.9203698, "lng": -77.0241653},
 ]
 
 verified_donations = []
@@ -299,7 +301,7 @@ def api_admin_login():
         return jsonify({"error": "Too many sign-in attempts. Wait a minute and try again."}), 429
     data = request.get_json(silent=True) or {}
     password = str(data.get("password", ""))
-    if not secrets.compare_digest(password.encode(), os.environ.get("ADMIN_PASSWORD", "admin123").encode()):
+    if not secrets.compare_digest(password.encode(), os.environ.get("ADMIN_PASSWORD") or "admin123".encode()):
         return jsonify({"error": "Incorrect password."}), 401
     session["admin_logged_in"] = True
     return jsonify({"authenticated": True})
